@@ -1,0 +1,168 @@
+﻿@page "/admin/movies"
+@inject IMovieService MovieService
+@inject IGenreService GenreService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Фільми</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Фільми</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudText Typo="Typo.subtitle1" Class="mb-2">
+        @(_editing.MovieId == 0 ? "Новий фільм" : "Редагування фільму")
+    </MudText>
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_editing.Title" Label="Назва"
+                          Variant="Variant.Outlined" MaxLength="255" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudSelect T="int" @bind-Value="_editing.GenreId" Label="Жанр" Variant="Variant.Outlined">
+                @foreach (var g in _genres)
+                {
+                    <MudSelectItem T="int" Value="@g.GenreId">@g.GenreName</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudNumericField T="int" @bind-Value="_editing.Duration" Label="Тривалість (хв)"
+                             Variant="Variant.Outlined" HelperText="Від 1 до 300 хв" />
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudSelect T="string" @bind-Value="_editing.AgeRating" Label="Віковий рейтинг"
+                       Variant="Variant.Outlined">
+                @foreach (var r in MovieService.AgeRatings)
+                {
+                    <MudSelectItem T="string" Value="@r">@r</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudDatePicker @bind-Date="ReleaseDateValue" Label="Дата виходу"
+                           Variant="Variant.Outlined" Editable="true" />
+        </MudItem>
+        <MudItem xs="12">
+            <MudTextField @bind-Value="_editing.Description" Label="Опис"
+                          Variant="Variant.Outlined" Lines="3" />
+        </MudItem>
+        <MudItem xs="12">
+            <MudStack Row="true">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Зберегти</MudButton>
+                @if (_editing.MovieId != 0)
+                {
+                    <MudButton Variant="Variant.Text" OnClick="ResetForm">Скасувати</MudButton>
+                }
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudTextField @bind-Value="_searchTitle" @bind-Value:after="LoadAsync"
+                      Label="Пошук за назвою" Variant="Variant.Outlined"
+                      Immediate="true" DebounceInterval="300"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+        <MudSelect T="int?" @bind-Value="_searchGenreId" @bind-Value:after="LoadAsync"
+                   Label="Жанр" Variant="Variant.Outlined" Clearable="true">
+            @foreach (var g in _genres)
+            {
+                <MudSelectItem T="int?" Value="@((int?)g.GenreId)">@g.GenreName</MudSelectItem>
+            }
+        </MudSelect>
+    </MudStack>
+</MudPaper>
+
+<MudTable Items="_movies" Hover="true" Dense="true">
+    <HeaderContent>
+        <MudTh>ID</MudTh>
+        <MudTh>Назва</MudTh>
+        <MudTh>Жанр</MudTh>
+        <MudTh>Тривалість</MudTh>
+        <MudTh>Вік</MudTh>
+        <MudTh>Дата виходу</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.MovieId</MudTd>
+        <MudTd>@context.Title</MudTd>
+        <MudTd>@context.Genre?.GenreName</MudTd>
+        <MudTd>@context.Duration хв</MudTd>
+        <MudTd>@context.AgeRating</MudTd>
+        <MudTd>@(context.ReleaseDate?.ToString("dd.MM.yyyy"))</MudTd>
+        <MudTd Style="text-align:right">
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                           OnClick="() => Edit(context)" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                           OnClick="() => DeleteAsync(context)" />
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>Нічого не знайдено</MudText>
+    </NoRecordsContent>
+</MudTable>
+
+@code {
+    private List<Movie> _movies = new();
+    private List<Genre> _genres = new();
+    private Movie _editing = NewMovie();
+    private string? _searchTitle;
+    private int? _searchGenreId;
+
+    private static Movie NewMovie() => new() { Duration = 90, AgeRating = "12+" };
+
+    private DateTime? ReleaseDateValue
+    {
+        get => _editing.ReleaseDate?.ToDateTime(TimeOnly.MinValue);
+        set => _editing.ReleaseDate = value is null ? null : DateOnly.FromDateTime(value.Value);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _genres = (await GenreService.GetAllAsync()).OrderBy(g => g.GenreName).ToList();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync() =>
+        _movies = await MovieService.SearchAsync(_searchTitle, _searchGenreId);
+
+    private void Edit(Movie m) => _editing = new Movie
+    {
+        MovieId = m.MovieId,
+        Title = m.Title,
+        GenreId = m.GenreId,
+        Duration = m.Duration,
+        AgeRating = m.AgeRating,
+        ReleaseDate = m.ReleaseDate,
+        Description = m.Description
+    };
+
+    private void ResetForm() => _editing = NewMovie();
+
+    private async Task SaveAsync()
+    {
+        var result = await MovieService.SaveAsync(_editing);
+        if (!result.Success)
+        {
+            Snackbar.Add(result.Error!, Severity.Error);
+            return;
+        }
+        Snackbar.Add("Збережено", Severity.Success);
+        ResetForm();
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Movie m)
+    {
+        bool? confirm = await DialogService.ShowMessageBoxAsync(
+            "Підтвердження", $"Видалити фільм «{m.Title}»?",
+            yesText: "Видалити", cancelText: "Скасувати");
+        if (confirm != true) return;
+
+        var result = await MovieService.DeleteAsync(m.MovieId);
+        Snackbar.Add(result.Success ? "Видалено" : result.Error!,
+                     result.Success ? Severity.Success : Severity.Error);
+        if (result.Success) await LoadAsync();
+    }
+}

@@ -1,0 +1,150 @@
+﻿@page "/admin/halls"
+@inject IHallService HallService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Зали</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Зали</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudText Typo="Typo.subtitle1" Class="mb-2">
+        @(IsNew ? "Новий зал" : "Редагування залу")
+    </MudText>
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_editing.HallName" Label="Назва залу"
+                          Variant="Variant.Outlined" MaxLength="100" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_editing.ScreenType" Label="Тип екрана"
+                          Variant="Variant.Outlined" MaxLength="50"
+                          HelperText="Наприклад: 2D, 3D, IMAX" />
+        </MudItem>
+
+        @if (IsNew)
+        {
+            <MudItem xs="12" sm="6">
+                <MudNumericField T="int" @bind-Value="_editing.RowsCount" Label="Кількість рядів"
+                                 Variant="Variant.Outlined" HelperText="Від 1 до 30" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudNumericField T="int" @bind-Value="_seatsPerRow" Label="Місць у ряду"
+                                 Variant="Variant.Outlined" HelperText="Від 1 до 50" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudText Typo="Typo.caption">
+                    Місця буде створено автоматично: ряди 1–3 по 150 грн, останні 3 ряди по 90 грн,
+                    решта по 120 грн. Ціни можна змінити на сторінці «Місця».
+                </MudText>
+            </MudItem>
+        }
+        else
+        {
+            <MudItem xs="12">
+                <MudText Typo="Typo.caption">
+                    Схема місць (@_editing.RowsCount рядів, @_editing.Capacity місць) змінюється
+                    на сторінці «Місця» цього залу.
+                </MudText>
+            </MudItem>
+        }
+
+        <MudItem xs="12">
+            <MudStack Row="true">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Зберегти</MudButton>
+                @if (!IsNew)
+                {
+                    <MudButton Variant="Variant.Text" OnClick="ResetForm">Скасувати</MudButton>
+                }
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudTable Items="_halls" Hover="true" Dense="true">
+    <HeaderContent>
+        <MudTh>ID</MudTh>
+        <MudTh>Назва</MudTh>
+        <MudTh>Екран</MudTh>
+        <MudTh>Ряди</MudTh>
+        <MudTh>Місць</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.HallId</MudTd>
+        <MudTd>@context.HallName</MudTd>
+        <MudTd>@context.ScreenType</MudTd>
+        <MudTd>@context.RowsCount</MudTd>
+        <MudTd>@context.Capacity</MudTd>
+        <MudTd Style="text-align:right">
+            <MudIconButton Icon="@Icons.Material.Filled.EventSeat" Size="Size.Small"
+                           Href="@($"/admin/halls/{context.HallId}/seats")" Title="Місця" />
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                           OnClick="() => Edit(context)" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                           OnClick="() => DeleteAsync(context)" />
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>Залів ще немає</MudText>
+    </NoRecordsContent>
+</MudTable>
+
+@code {
+    private List<Hall> _halls = new();
+    private Hall _editing = NewHall();
+    private int _seatsPerRow = 10;
+
+    private bool IsNew => _editing.HallId == 0;
+
+    private static Hall NewHall() => new() { RowsCount = 8 };
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() =>
+        _halls = (await HallService.GetAllAsync()).OrderBy(h => h.HallId).ToList();
+
+    private void Edit(Hall h) => _editing = new Hall
+    {
+        HallId = h.HallId,
+        HallName = h.HallName,
+        ScreenType = h.ScreenType,
+        RowsCount = h.RowsCount,
+        Capacity = h.Capacity
+    };
+
+    private void ResetForm()
+    {
+        _editing = NewHall();
+        _seatsPerRow = 10;
+    }
+
+    private async Task SaveAsync()
+    {
+        var result = IsNew
+            ? await HallService.CreateAsync(_editing, _seatsPerRow)
+            : await HallService.UpdateAsync(_editing);
+
+        if (!result.Success)
+        {
+            Snackbar.Add(result.Error!, Severity.Error);
+            return;
+        }
+        Snackbar.Add("Збережено", Severity.Success);
+        ResetForm();
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Hall h)
+    {
+        bool? confirm = await DialogService.ShowMessageBoxAsync(
+            "Підтвердження", $"Видалити зал «{h.HallName}» разом з усіма його місцями?",
+            yesText: "Видалити", cancelText: "Скасувати");
+        if (confirm != true) return;
+
+        var result = await HallService.DeleteAsync(h.HallId);
+        Snackbar.Add(result.Success ? "Видалено" : result.Error!,
+                     result.Success ? Severity.Success : Severity.Error);
+        if (result.Success) await LoadAsync();
+    }
+}

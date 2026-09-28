@@ -1,0 +1,117 @@
+﻿@page "/admin/customers"
+@inject ICustomerService CustomerService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Клієнти</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Клієнти</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudText Typo="Typo.subtitle1" Class="mb-2">
+        @(_editing.CustomerId == 0 ? "Новий клієнт" : "Редагування клієнта")
+    </MudText>
+    <MudGrid>
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_editing.FirstName" Label="Ім'я" Variant="Variant.Outlined" MaxLength="50" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_editing.LastName" Label="Прізвище" Variant="Variant.Outlined" MaxLength="50" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_editing.Phone" Label="Телефон" Variant="Variant.Outlined" MaxLength="20" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_editing.Email" Label="Email" Variant="Variant.Outlined" MaxLength="100" />
+        </MudItem>
+        <MudItem xs="12">
+            <MudStack Row="true">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Зберегти</MudButton>
+                @if (_editing.CustomerId != 0)
+                {
+                    <MudButton Variant="Variant.Text" OnClick="ResetForm">Скасувати</MudButton>
+                }
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudTextField @bind-Value="_search" @bind-Value:after="LoadAsync" Label="Пошук за ім'ям, прізвищем або email"
+              Variant="Variant.Outlined" Immediate="true" DebounceInterval="300" Class="mb-4"
+              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+
+<MudTable Items="_customers" Hover="true" Dense="true">
+    <HeaderContent>
+        <MudTh>ID</MudTh>
+        <MudTh>Прізвище</MudTh>
+        <MudTh>Ім'я</MudTh>
+        <MudTh>Телефон</MudTh>
+        <MudTh>Email</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.CustomerId</MudTd>
+        <MudTd>@context.LastName</MudTd>
+        <MudTd>@context.FirstName</MudTd>
+        <MudTd>@context.Phone</MudTd>
+        <MudTd>@context.Email</MudTd>
+        <MudTd Style="text-align:right">
+            <MudIconButton Icon="@Icons.Material.Filled.ConfirmationNumber" Size="Size.Small"
+                           Href="@($"/admin/tickets?customerId={context.CustomerId}")" Title="Квитки клієнта" />
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                           OnClick="() => Edit(context)" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                           OnClick="() => DeleteAsync(context)" />
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>Нічого не знайдено</MudText>
+    </NoRecordsContent>
+</MudTable>
+
+@code {
+    private List<Customer> _customers = new();
+    private Customer _editing = new();
+    private string? _search;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() => _customers = await CustomerService.SearchAsync(_search);
+
+    private void Edit(Customer c) => _editing = new Customer
+    {
+        CustomerId = c.CustomerId,
+        FirstName = c.FirstName,
+        LastName = c.LastName,
+        Phone = c.Phone,
+        Email = c.Email
+    };
+
+    private void ResetForm() => _editing = new Customer();
+
+    private async Task SaveAsync()
+    {
+        var result = await CustomerService.SaveAsync(_editing);
+        if (!result.Success)
+        {
+            Snackbar.Add(result.Error!, Severity.Error);
+            return;
+        }
+        Snackbar.Add("Збережено", Severity.Success);
+        ResetForm();
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Customer c)
+    {
+        bool? confirm = await DialogService.ShowMessageBoxAsync(
+            "Підтвердження", $"Видалити клієнта «{c.LastName} {c.FirstName}»?",
+            yesText: "Видалити", cancelText: "Скасувати");
+        if (confirm != true) return;
+
+        var result = await CustomerService.DeleteAsync(c.CustomerId);
+        Snackbar.Add(result.Success ? "Видалено" : result.Error!,
+                     result.Success ? Severity.Success : Severity.Error);
+        if (result.Success) await LoadAsync();
+    }
+}

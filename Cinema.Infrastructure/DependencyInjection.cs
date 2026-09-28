@@ -12,6 +12,13 @@ public static class DependencyInjection
     {
         services.AddDbContextFactory<CinemaDbContext>(o => o.UseNpgsql(connectionString));
         services.AddScoped<IGenreRepository, GenreRepository>();
+        services.AddScoped<IMovieRepository, MovieRepository>();
+        services.AddScoped<IHallRepository, HallRepository>();
+        services.AddScoped<ISeatRepository, SeatRepository>();
+        services.AddScoped<ISessionRepository, SessionRepository>();
+        services.AddScoped<ICustomerRepository, CustomerRepository>();
+        services.AddScoped<ITicketRepository, TicketRepository>();
+        services.AddScoped<IPaymentRepository, PaymentRepository>();
         return services;
     }
 }

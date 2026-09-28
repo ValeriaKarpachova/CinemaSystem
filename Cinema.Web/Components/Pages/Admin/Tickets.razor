@@ -1,0 +1,138 @@
+﻿@page "/admin/tickets"
+@using Cinema.Domain.Common
+@inject ITicketService TicketService
+@inject IPaymentService PaymentService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Квитки</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Квитки</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudSelect T="string" @bind-Value="_searchStatus" @bind-Value:after="LoadAsync"
+                   Label="Статус" Variant="Variant.Outlined" Clearable="true">
+            @foreach (var s in TicketStatus.All)
+            {
+                <MudSelectItem T="string" Value="@s">@s</MudSelectItem>
+            }
+        </MudSelect>
+        @if (CustomerId.HasValue)
+        {
+            <MudChip T="string" Color="Color.Primary" OnClose="ClearCustomerFilter">
+                Фільтр за клієнтом #@CustomerId
+            </MudChip>
+        }
+    </MudStack>
+</MudPaper>
+
+<MudTable Items="_tickets" Hover="true" Dense="true">
+    <HeaderContent>
+        <MudTh>ID</MudTh>
+        <MudTh>Фільм / сеанс</MudTh>
+        <MudTh>Місце</MudTh>
+        <MudTh>Клієнт</MudTh>
+        <MudTh>Ціна</MudTh>
+        <MudTh>Статус</MudTh>
+        <MudTh>Оплата</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.TicketId</MudTd>
+        <MudTd>
+            @context.Session?.Movie?.Title
+            <br />
+            <MudText Typo="Typo.caption">
+                @context.Session?.SessionDate.ToString("dd.MM.yyyy") @context.Session?.SessionTime.ToString("HH:mm")
+            </MudText>
+        </MudTd>
+        <MudTd>Ряд @context.Seat?.RowNumber, місце @context.Seat?.SeatNumber</MudTd>
+        <MudTd>@context.Customer?.LastName @context.Customer?.FirstName</MudTd>
+        <MudTd>@context.Price.ToString("0.00")</MudTd>
+        <MudTd>
+            <MudSelect T="string" Value="@context.Status" ValueChanged="@(s => ChangeStatusAsync(context, s))"
+                       Dense="true" Margin="Margin.Dense">
+                @foreach (var s in TicketStatus.All)
+                {
+                    <MudSelectItem T="string" Value="@s">@s</MudSelectItem>
+                }
+            </MudSelect>
+        </MudTd>
+        <MudTd>
+            @if (_payments.TryGetValue(context.TicketId, out var p))
+            {
+                <MudText Typo="Typo.body2">@p.Amount.ToString("0.00") · @p.PaymentMethod</MudText>
+            }
+            else
+            {
+                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => OpenPaymentDialog(context)">
+                    Зареєструвати оплату
+                </MudButton>
+            }
+        </MudTd>
+        <MudTd Style="text-align:right">
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                           OnClick="() => DeleteAsync(context)" />
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>Квитків не знайдено</MudText>
+    </NoRecordsContent>
+</MudTable>
+
+@code {
+    [SupplyParameterFromQuery] public int? CustomerId { get; set; }
+
+    private List<Ticket> _tickets = new();
+    private Dictionary<int, Payment> _payments = new();
+    private string? _searchStatus;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _tickets = await TicketService.SearchAsync(CustomerId, _searchStatus);
+        _payments.Clear();
+        foreach (var t in _tickets)
+        {
+            var p = await PaymentService.GetByTicketIdAsync(t.TicketId);
+            if (p is not null) _payments[t.TicketId] = p;
+        }
+    }
+
+    private void ClearCustomerFilter()
+    {
+        CustomerId = null;
+        _ = LoadAsync();
+    }
+
+    private async Task ChangeStatusAsync(Ticket t, string newStatus)
+    {
+        var result = await TicketService.ChangeStatusAsync(t.TicketId, newStatus);
+        Snackbar.Add(result.Success ? "Статус оновлено" : result.Error!,
+                     result.Success ? Severity.Success : Severity.Error);
+        await LoadAsync();
+    }
+
+    private async Task OpenPaymentDialog(Ticket t)
+    {
+        var parameters = new DialogParameters<PaymentDialog> { { x => x.Ticket, t } };
+        var dialog = await DialogService.ShowAsync<PaymentDialog>("Реєстрація оплати", parameters);
+        var result = await dialog.Result;
+        if (result is { Canceled: false }) await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Ticket t)
+    {
+        bool? confirm = await DialogService.ShowMessageBoxAsync(
+            "Підтвердження", $"Видалити квиток #{t.TicketId}?",
+            yesText: "Видалити", cancelText: "Скасувати");
+        if (confirm != true) return;
+
+        var result = await TicketService.DeleteAsync(t.TicketId);
+        Snackbar.Add(result.Success ? "Видалено" : result.Error!,
+                     result.Success ? Severity.Success : Severity.Error);
+        if (result.Success) await LoadAsync();
+    }
+}

@@ -1,0 +1,47 @@
+﻿@using Cinema.Domain.Common
+@inject IPaymentService PaymentService
+
+<MudDialog>
+    <DialogContent>
+        <MudText Class="mb-3">Квиток #@Ticket.TicketId, сума за замовчуванням — ціна квитка.</MudText>
+        <MudNumericField T="decimal" @bind-Value="_amount" Label="Сума, грн" Variant="Variant.Outlined" />
+        <MudSelect T="string" @bind-Value="_method" Label="Спосіб оплати" Variant="Variant.Outlined" Class="mt-3">
+            @foreach (var m in PaymentMethod.All)
+            {
+                <MudSelectItem T="string" Value="@m">@m</MudSelectItem>
+            }
+        </MudSelect>
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Скасувати</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="ConfirmAsync">Зареєструвати</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public Ticket Ticket { get; set; } = null!;
+
+    private decimal _amount;
+    private string _method = PaymentMethod.Card;
+    private string? _error;
+
+    protected override void OnParametersSet() => _amount = Ticket.Price;
+
+    private async Task ConfirmAsync()
+    {
+        var result = await PaymentService.RegisterAsync(Ticket.TicketId, _amount, _method);
+        if (!result.Success)
+        {
+            _error = result.Error;
+            return;
+        }
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Cancel() => MudDialog.Close(DialogResult.Cancel());
+}

@@ -59,7 +59,6 @@
         string.IsNullOrWhiteSpace(_search) ||
         g.GenreName.Contains(_search, StringComparison.OrdinalIgnoreCase);
 
-    // редагуємо копію, щоб «Скасувати» не міняло рядок у таблиці
     private void Edit(Genre g) => _editing = new Genre { GenreId = g.GenreId, GenreName = g.GenreName };
 
     private void ResetForm() => _editing = new Genre();

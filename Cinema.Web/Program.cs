@@ -11,6 +11,13 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddInfrastructure(builder.Configuration.GetConnectionString("CinemaDb")!);
 builder.Services.AddScoped<IGenreService, GenreService>();
+builder.Services.AddScoped<IMovieService, MovieService>();
+builder.Services.AddScoped<IHallService, HallService>();
+builder.Services.AddScoped<ISeatService, SeatService>();
+builder.Services.AddScoped<ISessionService, SessionService>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddScoped<ITicketService, TicketService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddMudServices();
 
 var app = builder.Build();

@@ -1,0 +1,151 @@
+﻿@page "/admin/halls/{HallId:int}/seats"
+@inject IHallService HallService
+@inject ISeatService SeatService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Місця залу</PageTitle>
+
+@if (_hall is null)
+{
+    <MudAlert Severity="Severity.Warning">Зал не знайдено.</MudAlert>
+    <MudButton Href="/admin/halls" Class="mt-2">До списку залів</MudButton>
+    return;
+}
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/admin/halls" />
+    <MudText Typo="Typo.h5">Місця залу «@_hall.HallName»</MudText>
+    <MudText Typo="Typo.subtitle1">(@_seats.Count місць, @_hall.RowsCount рядів)</MudText>
+</MudStack>
+
+<MudGrid>
+    <MudItem xs="12" md="7">
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-2">Схема залу (натисніть місце, щоб редагувати)</MudText>
+            <MudPaper Outlined="true" Class="pa-1 mb-3" Style="text-align:center">Екран</MudPaper>
+
+            @foreach (var row in _seats.GroupBy(s => s.RowNumber).OrderBy(g => g.Key))
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1" Spacing="1">
+                    <MudText Style="width:70px">Ряд @row.Key</MudText>
+                    @foreach (var seat in row.OrderBy(s => s.SeatNumber))
+                    {
+                        <MudTooltip Text="@($"{seat.Price:0.00} грн")">
+                            <MudButton Size="Size.Small" Style="min-width:36px"
+                                       Variant="@(_editing.SeatId == seat.SeatId ? Variant.Filled : Variant.Outlined)"
+                                       Color="Color.Primary"
+                                       OnClick="() => Select(seat)">@seat.SeatNumber</MudButton>
+                        </MudTooltip>
+                    }
+                </MudStack>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="5">
+        <MudPaper Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-2">
+                @(_editing.SeatId == 0 ? "Нове місце" : "Редагування місця")
+            </MudText>
+            <MudStack>
+                <MudNumericField T="int" @bind-Value="_editing.RowNumber" Label="Ряд"
+                                 Variant="Variant.Outlined" HelperText="@($"Від 1 до {_hall.RowsCount}")" />
+                <MudNumericField T="int" @bind-Value="_editing.SeatNumber" Label="Номер місця"
+                                 Variant="Variant.Outlined" />
+                <MudNumericField T="decimal" @bind-Value="_editing.Price" Label="Ціна, грн"
+                                 Variant="Variant.Outlined" HelperText="Від 0 до 10000" />
+                <MudStack Row="true">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Зберегти</MudButton>
+                    @if (_editing.SeatId != 0)
+                    {
+                        <MudButton Color="Color.Error" OnClick="DeleteAsync">Видалити</MudButton>
+                        <MudButton Variant="Variant.Text" OnClick="ResetForm">Нове місце</MudButton>
+                    }
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-2">Ціна для всього ряду</MudText>
+            <MudStack Row="true" AlignItems="AlignItems.Center">
+                <MudNumericField T="int" @bind-Value="_bulkRow" Label="Ряд" Variant="Variant.Outlined" />
+                <MudNumericField T="decimal" @bind-Value="_bulkPrice" Label="Ціна, грн" Variant="Variant.Outlined" />
+                <MudButton Variant="Variant.Filled" OnClick="ApplyRowPriceAsync">Застосувати</MudButton>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    [Parameter] public int HallId { get; set; }
+
+    private Hall? _hall;
+    private List<Seat> _seats = new();
+    private Seat _editing = new();
+    private int _bulkRow = 1;
+    private decimal _bulkPrice = 120;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _hall = await HallService.GetByIdAsync(HallId);
+        ResetForm();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _hall = await HallService.GetByIdAsync(HallId);   // щоб оновилась місткість
+        _seats = await SeatService.GetByHallAsync(HallId);
+    }
+
+    private void ResetForm() => _editing = new Seat { HallId = HallId, RowNumber = 1, SeatNumber = 1, Price = 120 };
+
+    private void Select(Seat s) => _editing = new Seat
+    {
+        SeatId = s.SeatId,
+        HallId = s.HallId,
+        RowNumber = s.RowNumber,
+        SeatNumber = s.SeatNumber,
+        Price = s.Price
+    };
+
+    private async Task SaveAsync()
+    {
+        var result = await SeatService.SaveAsync(_editing);
+        if (!result.Success)
+        {
+            Snackbar.Add(result.Error!, Severity.Error);
+            return;
+        }
+        Snackbar.Add("Збережено", Severity.Success);
+        ResetForm();
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        bool? confirm = await DialogService.ShowMessageBoxAsync(
+            "Підтвердження",
+            $"Видалити місце: ряд {_editing.RowNumber}, місце {_editing.SeatNumber}?",
+            yesText: "Видалити", cancelText: "Скасувати");
+        if (confirm != true) return;
+
+        var result = await SeatService.DeleteAsync(_editing);
+        Snackbar.Add(result.Success ? "Видалено" : result.Error!,
+                     result.Success ? Severity.Success : Severity.Error);
+        if (result.Success)
+        {
+            ResetForm();
+            await LoadAsync();
+        }
+    }
+
+    private async Task ApplyRowPriceAsync()
+    {
+        var result = await SeatService.SetRowPriceAsync(HallId, _bulkRow, _bulkPrice);
+        Snackbar.Add(result.Success ? "Ціни ряду оновлено" : result.Error!,
+                     result.Success ? Severity.Success : Severity.Error);
+        if (result.Success) await LoadAsync();
+    }
+}

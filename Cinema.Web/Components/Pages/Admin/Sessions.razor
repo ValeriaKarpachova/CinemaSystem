@@ -1,0 +1,186 @@
+﻿@page "/admin/sessions"
+@inject ISessionService SessionService
+@inject IMovieService MovieService
+@inject IHallService HallService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Сеанси</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Сеанси</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudText Typo="Typo.subtitle1" Class="mb-2">
+        @(_editing.SessionId == 0 ? "Новий сеанс" : "Редагування сеансу")
+    </MudText>
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudSelect T="int" @bind-Value="_editing.MovieId" Label="Фільм" Variant="Variant.Outlined">
+                @foreach (var m in _movies)
+                {
+                    <MudSelectItem T="int" Value="@m.MovieId">@m.Title</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudSelect T="int" @bind-Value="_editing.HallId" Label="Зал" Variant="Variant.Outlined">
+                @foreach (var h in _halls)
+                {
+                    <MudSelectItem T="int" Value="@h.HallId">@h.HallName</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudDatePicker @bind-Date="SessionDateValue" Label="Дата сеансу"
+                           Variant="Variant.Outlined" Editable="true" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTimePicker @bind-Time="SessionTimeValue" Label="Час сеансу"
+                           Variant="Variant.Outlined" Editable="true" />
+        </MudItem>
+        <MudItem xs="12">
+            <MudStack Row="true">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Зберегти</MudButton>
+                @if (_editing.SessionId != 0)
+                {
+                    <MudButton Variant="Variant.Text" OnClick="ResetForm">Скасувати</MudButton>
+                }
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudDatePicker @bind-Date="SearchDateValue" @bind-Date:after="LoadAsync"
+                       Label="Дата" Variant="Variant.Outlined" Editable="true" Clearable="true" />
+        <MudSelect T="int?" @bind-Value="_searchMovieId" @bind-Value:after="LoadAsync"
+                   Label="Фільм" Variant="Variant.Outlined" Clearable="true">
+            @foreach (var m in _movies)
+            {
+                <MudSelectItem T="int?" Value="@((int?)m.MovieId)">@m.Title</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="int?" @bind-Value="_searchHallId" @bind-Value:after="LoadAsync"
+                   Label="Зал" Variant="Variant.Outlined" Clearable="true">
+            @foreach (var h in _halls)
+            {
+                <MudSelectItem T="int?" Value="@((int?)h.HallId)">@h.HallName</MudSelectItem>
+            }
+        </MudSelect>
+    </MudStack>
+</MudPaper>
+
+<MudTable Items="_sessions" Hover="true" Dense="true">
+    <HeaderContent>
+        <MudTh>ID</MudTh>
+        <MudTh>Фільм</MudTh>
+        <MudTh>Зал</MudTh>
+        <MudTh>Дата</MudTh>
+        <MudTh>Час</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.SessionId</MudTd>
+        <MudTd>@context.Movie?.Title</MudTd>
+        <MudTd>@context.Hall?.HallName</MudTd>
+        <MudTd>@context.SessionDate.ToString("dd.MM.yyyy")</MudTd>
+        <MudTd>@context.SessionTime.ToString("HH:mm")</MudTd>
+        <MudTd Style="text-align:right">
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                           OnClick="() => Edit(context)" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                           OnClick="() => DeleteAsync(context)" />
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>Нічого не знайдено</MudText>
+    </NoRecordsContent>
+</MudTable>
+
+@code {
+    private List<Session> _sessions = new();
+    private List<Movie> _movies = new();
+    private List<Hall> _halls = new();
+    private Session _editing = NewSession();
+
+    private int? _searchMovieId;
+    private int? _searchHallId;
+    private DateOnly? _searchDate;
+
+    private static Session NewSession() => new()
+    {
+        SessionDate = DateOnly.FromDateTime(DateTime.Today),
+        SessionTime = new TimeOnly(18, 0)
+    };
+
+    // конвертери, бо MudDatePicker/MudTimePicker працюють з DateTime?/TimeSpan?,
+    // а в моделі DateOnly/TimeOnly
+    private DateTime? SessionDateValue
+    {
+        get => _editing.SessionDate.ToDateTime(TimeOnly.MinValue);
+        set => _editing.SessionDate = value is null
+            ? DateOnly.FromDateTime(DateTime.Today)
+            : DateOnly.FromDateTime(value.Value);
+    }
+
+    private TimeSpan? SessionTimeValue
+    {
+        get => _editing.SessionTime.ToTimeSpan();
+        set => _editing.SessionTime = value is null ? new TimeOnly(18, 0) : TimeOnly.FromTimeSpan(value.Value);
+    }
+
+    private DateTime? SearchDateValue
+    {
+        get => _searchDate?.ToDateTime(TimeOnly.MinValue);
+        set => _searchDate = value is null ? null : DateOnly.FromDateTime(value.Value);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _movies = (await MovieService.SearchAsync(null, null)).OrderBy(m => m.Title).ToList();
+        _halls = (await HallService.GetAllAsync()).OrderBy(h => h.HallName).ToList();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync() =>
+        _sessions = await SessionService.SearchAsync(_searchDate, _searchMovieId, _searchHallId);
+
+    private void Edit(Session s) => _editing = new Session
+    {
+        SessionId = s.SessionId,
+        MovieId = s.MovieId,
+        HallId = s.HallId,
+        SessionDate = s.SessionDate,
+        SessionTime = s.SessionTime
+    };
+
+    private void ResetForm() => _editing = NewSession();
+
+    private async Task SaveAsync()
+    {
+        var result = await SessionService.SaveAsync(_editing);
+        if (!result.Success)
+        {
+            Snackbar.Add(result.Error!, Severity.Error);
+            return;
+        }
+        Snackbar.Add("Збережено", Severity.Success);
+        ResetForm();
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Session s)
+    {
+        bool? confirm = await DialogService.ShowMessageBoxAsync(
+            "Підтвердження",
+            $"Видалити сеанс «{s.Movie?.Title}» ({s.SessionDate:dd.MM.yyyy} {s.SessionTime:HH:mm})?",
+            yesText: "Видалити", cancelText: "Скасувати");
+        if (confirm != true) return;
+
+        var result = await SessionService.DeleteAsync(s.SessionId);
+        Snackbar.Add(result.Success ? "Видалено" : result.Error!,
+                     result.Success ? Severity.Success : Severity.Error);
+        if (result.Success) await LoadAsync();
+    }
+}
