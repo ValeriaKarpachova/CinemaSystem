@@ -1,0 +1,19 @@
+﻿@page "/"
+
+@using Microsoft.EntityFrameworkCore
+@using Cinema.Infrastructure.Data
+@inject IDbContextFactory<CinemaDbContext> DbFactory
+
+<h1>Кінотеатр</h1>
+
+<p>Фільмів у базі: @count</p>
+
+@code {
+    private int count;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        count = await db.Movies.CountAsync();
+    }
+}

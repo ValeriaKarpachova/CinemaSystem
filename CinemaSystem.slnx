@@ -1,1 +1,5 @@
-<Solution />
+<Solution>
+  <Project Path="Cinema.Domain/Cinema.Domain.csproj" />
+  <Project Path="Cinema.Infrastructure/Cinema.Infrastructure.csproj" />
+  <Project Path="Cinema.Web/Cinema.Web.csproj" Id="68f127bc-a5db-4e41-ac9b-07eb9b094396" />
+</Solution>
