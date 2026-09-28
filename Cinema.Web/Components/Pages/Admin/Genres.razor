@@ -1,0 +1,92 @@
+﻿@page "/admin/genres"
+@inject IGenreService GenreService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Жанри</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Жанри</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudText Typo="Typo.subtitle1" Class="mb-2">
+        @(_editing.GenreId == 0 ? "Новий жанр" : "Редагування жанру")
+    </MudText>
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudTextField @bind-Value="_editing.GenreName" Label="Назва жанру"
+                      Variant="Variant.Outlined" MaxLength="50" Immediate="true" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Зберегти</MudButton>
+        @if (_editing.GenreId != 0)
+        {
+            <MudButton Variant="Variant.Text" OnClick="ResetForm">Скасувати</MudButton>
+        }
+    </MudStack>
+</MudPaper>
+
+<MudTable Items="_genres" Hover="true" Dense="true" Filter="FilterFunc">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Список жанрів</MudText>
+        <MudSpacer />
+        <MudTextField @bind-Value="_search" Placeholder="Пошук" Immediate="true"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh>ID</MudTh>
+        <MudTh>Назва</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.GenreId</MudTd>
+        <MudTd>@context.GenreName</MudTd>
+        <MudTd Style="text-align:right">
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                           OnClick="() => Edit(context)" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                           OnClick="() => DeleteAsync(context)" />
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private List<Genre> _genres = new();
+    private Genre _editing = new();
+    private string _search = "";
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() => _genres = await GenreService.GetAllAsync();
+
+    private bool FilterFunc(Genre g) =>
+        string.IsNullOrWhiteSpace(_search) ||
+        g.GenreName.Contains(_search, StringComparison.OrdinalIgnoreCase);
+
+    // редагуємо копію, щоб «Скасувати» не міняло рядок у таблиці
+    private void Edit(Genre g) => _editing = new Genre { GenreId = g.GenreId, GenreName = g.GenreName };
+
+    private void ResetForm() => _editing = new Genre();
+
+    private async Task SaveAsync()
+    {
+        var result = await GenreService.SaveAsync(_editing);
+        if (!result.Success)
+        {
+            Snackbar.Add(result.Error!, Severity.Error);
+            return;
+        }
+        Snackbar.Add("Збережено", Severity.Success);
+        ResetForm();
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Genre g)
+    {
+        bool? confirm = await DialogService.ShowMessageBoxAsync(
+            "Підтвердження", $"Видалити жанр «{g.GenreName}»?",
+            yesText: "Видалити", cancelText: "Скасувати");
+        if (confirm != true) return;
+
+        var result = await GenreService.DeleteAsync(g.GenreId);
+        Snackbar.Add(result.Success ? "Видалено" : result.Error!,
+                     result.Success ? Severity.Success : Severity.Error);
+        if (result.Success) await LoadAsync();
+    }
+}

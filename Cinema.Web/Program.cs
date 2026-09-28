@@ -1,14 +1,17 @@
-using Cinema.Infrastructure.Data;
+using Cinema.Infrastructure;
 using Cinema.Web.Components;
+using Cinema.Web.Services;
 using Microsoft.EntityFrameworkCore;
+using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
-builder.Services.AddDbContextFactory<CinemaDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("CinemaDb")));
+builder.Services.AddInfrastructure(builder.Configuration.GetConnectionString("CinemaDb")!);
+builder.Services.AddScoped<IGenreService, GenreService>();
+builder.Services.AddMudServices();
 
 var app = builder.Build();
 
