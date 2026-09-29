@@ -17,14 +17,14 @@ public class PaymentService : IPaymentService
         _tickets = tickets;
     }
 
+    public Task<List<Payment>> SearchAsync(string? method) => _repo.SearchAsync(method);
+
     public Task<Payment?> GetByTicketIdAsync(int ticketId) => _repo.GetByTicketIdAsync(ticketId);
 
     public async Task<OperationResult> RegisterAsync(int ticketId, decimal amount, string method)
     {
-        if (!PaymentMethod.All.Contains(method))
-            return OperationResult.Fail("Невідомий спосіб оплати.");
-        if (amount <= 0)
-            return OperationResult.Fail("Сума оплати має бути більшою за нуль.");
+        var error = Validate(amount, method);
+        if (error is not null) return OperationResult.Fail(error);
 
         var ticket = await _tickets.GetByIdAsync(ticketId);
         if (ticket is null) return OperationResult.Fail("Квиток не знайдено.");
@@ -56,8 +56,35 @@ public class PaymentService : IPaymentService
         return OperationResult.Ok();
     }
 
+    public async Task<OperationResult> UpdateAsync(int paymentId, decimal amount, string method)
+    {
+        var error = Validate(amount, method);
+        if (error is not null) return OperationResult.Fail(error);
+
+        var payment = await _repo.GetByIdAsync(paymentId);
+        if (payment is null) return OperationResult.Fail("Платіж не знайдено.");
+
+        payment.Amount = amount;
+        payment.PaymentMethod = method;
+        await _repo.UpdateAsync(payment);
+
+        return OperationResult.Ok();
+    }
+
     public async Task<OperationResult> DeleteAsync(int id)
     {
+        var payment = await _repo.GetByIdAsync(id);
+        if (payment is not null)
+        {
+            // видалення оплати повертає квиток у стан "Заброньовано"
+            var ticket = await _tickets.GetByIdAsync(payment.TicketId);
+            if (ticket is not null && ticket.Status == TicketStatus.Paid)
+            {
+                ticket.Status = TicketStatus.Booked;
+                await _tickets.UpdateAsync(ticket);
+            }
+        }
+
         try
         {
             await _repo.DeleteAsync(id);
@@ -67,5 +94,12 @@ public class PaymentService : IPaymentService
         {
             return OperationResult.Fail("Неможливо видалити платіж.");
         }
+    }
+
+    private static string? Validate(decimal amount, string method)
+    {
+        if (!PaymentMethod.All.Contains(method)) return "Невідомий спосіб оплати.";
+        if (amount <= 0) return "Сума оплати має бути більшою за нуль.";
+        return null;
     }
 }

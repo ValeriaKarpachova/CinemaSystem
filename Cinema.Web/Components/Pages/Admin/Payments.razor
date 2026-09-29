@@ -1,0 +1,86 @@
+﻿@page "/admin/payments"
+@using Cinema.Domain.Common
+@inject IPaymentService PaymentService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Оплати</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Оплати</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudSelect T="string" @bind-Value="_searchMethod" @bind-Value:after="LoadAsync"
+               Label="Спосіб оплати" Variant="Variant.Outlined" Clearable="true">
+        @foreach (var m in PaymentMethod.All)
+        {
+            <MudSelectItem T="string" Value="@m">@m</MudSelectItem>
+        }
+    </MudSelect>
+</MudPaper>
+
+<MudTable Items="_payments" Hover="true" Dense="true">
+    <HeaderContent>
+        <MudTh>ID</MudTh>
+        <MudTh>Квиток</MudTh>
+        <MudTh>Фільм / сеанс</MudTh>
+        <MudTh>Клієнт</MudTh>
+        <MudTh>Дата оплати</MudTh>
+        <MudTh>Спосіб</MudTh>
+        <MudTh>Сума</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.PaymentId</MudTd>
+        <MudTd>#@context.TicketId</MudTd>
+        <MudTd>
+            @context.Ticket?.Session?.Movie?.Title
+            <br />
+            <MudText Typo="Typo.caption">
+                @context.Ticket?.Session?.SessionDate.ToString("dd.MM.yyyy") @context.Ticket?.Session?.SessionTime.ToString("HH:mm")
+            </MudText>
+        </MudTd>
+        <MudTd>@context.Ticket?.Customer?.LastName @context.Ticket?.Customer?.FirstName</MudTd>
+        <MudTd>@context.PaymentDate.ToString("dd.MM.yyyy HH:mm")</MudTd>
+        <MudTd>@context.PaymentMethod</MudTd>
+        <MudTd>@context.Amount.ToString("0.00")</MudTd>
+        <MudTd Style="text-align:right">
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                           OnClick="() => OpenEditDialog(context)" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                           OnClick="() => DeleteAsync(context)" />
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>Оплат ще немає</MudText>
+    </NoRecordsContent>
+</MudTable>
+
+@code {
+    private List<Payment> _payments = new();
+    private string? _searchMethod;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() => _payments = await PaymentService.SearchAsync(_searchMethod);
+
+    private async Task OpenEditDialog(Payment p)
+    {
+        var parameters = new DialogParameters<PaymentEditDialog> { { x => x.Payment, p } };
+        var dialog = await DialogService.ShowAsync<PaymentEditDialog>("Редагування оплати", parameters);
+        var result = await dialog.Result;
+        if (result is { Canceled: false }) await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Payment p)
+    {
+        bool? confirm = await DialogService.ShowMessageBoxAsync(
+            "Підтвердження", $"Видалити оплату #{p.PaymentId} (квиток #{p.TicketId})?",
+            yesText: "Видалити", cancelText: "Скасувати");
+        if (confirm != true) return;
+
+        var result = await PaymentService.DeleteAsync(p.PaymentId);
+        Snackbar.Add(result.Success ? "Видалено" : result.Error!,
+                     result.Success ? Severity.Success : Severity.Error);
+        if (result.Success) await LoadAsync();
+    }
+}

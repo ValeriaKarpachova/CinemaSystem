@@ -1,4 +1,5 @@
 ﻿@page "/admin/halls/{HallId:int}/seats"
+@page "/admin/seats"
 @inject IHallService HallService
 @inject ISeatService SeatService
 @inject IDialogService DialogService
@@ -6,18 +7,29 @@
 
 <PageTitle>Місця залу</PageTitle>
 
+<MudText Typo="Typo.h5" Class="mb-4">Місця</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudSelect T="int" Value="_selectedHallId" ValueChanged="OnHallChanged"
+               Label="Зал" Variant="Variant.Outlined">
+        @foreach (var h in _halls)
+        {
+            <MudSelectItem T="int" Value="@h.HallId">@h.HallName</MudSelectItem>
+        }
+    </MudSelect>
+</MudPaper>
+
 @if (_hall is null)
 {
     <MudAlert Severity="Severity.Warning">Зал не знайдено.</MudAlert>
     <MudButton Href="/admin/halls" Class="mt-2">До списку залів</MudButton>
+    <MudAlert Severity="Severity.Info">Оберіть зал, щоб побачити схему місць.</MudAlert>
     return;
 }
 
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
-    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/admin/halls" />
-    <MudText Typo="Typo.h5">Місця залу «@_hall.HallName»</MudText>
-    <MudText Typo="Typo.subtitle1">(@_seats.Count місць, @_hall.RowsCount рядів)</MudText>
-</MudStack>
+<MudText Typo="Typo.subtitle1" Class="mb-4">
+    «@_hall.HallName»: @_seats.Count місць, @_hall.RowsCount рядів
+</MudText>
 
 <MudGrid>
     <MudItem xs="12" md="7">
@@ -78,28 +90,43 @@
 </MudGrid>
 
 @code {
-    [Parameter] public int HallId { get; set; }
+    [Parameter] public int? HallId { get; set; }
 
     private Hall? _hall;
+    private List<Hall> _halls = new();
     private List<Seat> _seats = new();
     private Seat _editing = new();
+    private int _selectedHallId;
     private int _bulkRow = 1;
     private decimal _bulkPrice = 120;
 
     protected override async Task OnParametersSetAsync()
     {
-        _hall = await HallService.GetByIdAsync(HallId);
+        _halls = (await HallService.GetAllAsync()).OrderBy(h => h.HallName).ToList();
+
+        _selectedHallId = HallId ?? _halls.FirstOrDefault()?.HallId ?? 0;
+        if (_selectedHallId == 0) { _hall = null; return; }
+
+        _hall = await HallService.GetByIdAsync(_selectedHallId);
+        ResetForm();
+        await LoadAsync();
+    }
+
+    private async Task OnHallChanged(int hallId)
+    {
+        _selectedHallId = hallId;
+        _hall = await HallService.GetByIdAsync(hallId);
         ResetForm();
         await LoadAsync();
     }
 
     private async Task LoadAsync()
     {
-        _hall = await HallService.GetByIdAsync(HallId);   // щоб оновилась місткість
-        _seats = await SeatService.GetByHallAsync(HallId);
+        _hall = await HallService.GetByIdAsync(_selectedHallId);
+        _seats = await SeatService.GetByHallAsync(_selectedHallId);
     }
 
-    private void ResetForm() => _editing = new Seat { HallId = HallId, RowNumber = 1, SeatNumber = 1, Price = 120 };
+    private void ResetForm() => _editing = new Seat { HallId = _selectedHallId, RowNumber = 1, SeatNumber = 1, Price = 120 };
 
     private void Select(Seat s) => _editing = new Seat
     {
@@ -143,7 +170,7 @@
 
     private async Task ApplyRowPriceAsync()
     {
-        var result = await SeatService.SetRowPriceAsync(HallId, _bulkRow, _bulkPrice);
+        var result = await SeatService.SetRowPriceAsync(_selectedHallId, _bulkRow, _bulkPrice);
         Snackbar.Add(result.Success ? "Ціни ряду оновлено" : result.Error!,
                      result.Success ? Severity.Success : Severity.Error);
         if (result.Success) await LoadAsync();

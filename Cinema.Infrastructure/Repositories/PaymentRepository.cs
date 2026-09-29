@@ -14,4 +14,17 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
         await using var db = await Factory.CreateDbContextAsync();
         return await db.Payments.AsNoTracking().FirstOrDefaultAsync(p => p.TicketId == ticketId);
     }
+
+    public async Task<List<Payment>> SearchAsync(string? method)
+    {
+        await using var db = await Factory.CreateDbContextAsync();
+        IQueryable<Payment> query = db.Payments.AsNoTracking()
+            .Include(p => p.Ticket).ThenInclude(t => t.Customer)
+            .Include(p => p.Ticket).ThenInclude(t => t.Session).ThenInclude(s => s.Movie);
+
+        if (!string.IsNullOrWhiteSpace(method))
+            query = query.Where(p => p.PaymentMethod == method);
+
+        return await query.OrderByDescending(p => p.PaymentDate).ToListAsync();
+    }
 }
