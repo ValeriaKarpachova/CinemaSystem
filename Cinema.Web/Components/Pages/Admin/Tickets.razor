@@ -2,11 +2,77 @@
 @using Cinema.Domain.Common
 @inject ITicketService TicketService
 @inject IPaymentService PaymentService
+@inject ISessionService SessionService
+@inject ISeatService SeatService
+@inject ICustomerService CustomerService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
-@attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>Квитки</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Квитки</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudText Typo="Typo.subtitle1" Class="mb-2">
+        @(_editing.TicketId == 0 ? "Новий квиток" : $"Редагування квитка #{_editing.TicketId}")
+    </MudText>
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudSelect T="int" Value="_editing.SessionId" ValueChanged="OnSessionChangedAsync"
+                       Label="Сеанс" Variant="Variant.Outlined" Disabled="@SeatLocked"
+                       HelperText="@(SeatLocked ? "Оплачений квиток: сеанс і місце змінити не можна" : null)">
+                @foreach (var se in _formSessions)
+                {
+                    <MudSelectItem T="int" Value="@se.SessionId">
+                        @se.Movie?.Title — @se.SessionDate.ToString("dd.MM.yyyy") @se.SessionTime.ToString("HH:mm") (@se.Hall?.HallName)
+                    </MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudSelect T="int" Value="_editing.SeatId" ValueChanged="OnSeatChanged"
+                       Label="Місце" Variant="Variant.Outlined" Disabled="@(SeatLocked || _editing.SessionId == 0)"
+                       HelperText="@(_editing.SessionId == 0 ? "Спочатку оберіть сеанс" : "Зайняті місця недоступні")">
+                @foreach (var seat in _formSeats)
+                {
+                    var taken = _occupiedSeatIds.Contains(seat.SeatId);
+                    <MudSelectItem T="int" Value="@seat.SeatId" Disabled="@taken">
+                        Ряд @seat.RowNumber, місце @seat.SeatNumber · @seat.Price.ToString("0.00")@(taken ? " (зайнято)" : "")
+                    </MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudSelect T="int" @bind-Value="_editing.CustomerId" Label="Клієнт" Variant="Variant.Outlined">
+                @foreach (var c in _formCustomers)
+                {
+                    <MudSelectItem T="int" Value="@c.CustomerId">@c.LastName @c.FirstName @(string.IsNullOrWhiteSpace(c.Email) ? "" : $"({c.Email})")</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudNumericField T="decimal" @bind-Value="_editing.Price" Label="Ціна" Variant="Variant.Outlined"
+                             Min="0m" Format="F2" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect T="string" @bind-Value="_editing.Status" Label="Статус" Variant="Variant.Outlined">
+                @foreach (var st in TicketStatus.All)
+                {
+                    <MudSelectItem T="string" Value="@st">@st</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12">
+            <MudStack Row="true">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Зберегти</MudButton>
+                @if (_editing.TicketId != 0)
+                {
+                    <MudButton Variant="Variant.Text" OnClick="ResetForm">Скасувати</MudButton>
+                }
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
 
 <MudPaper Class="pa-4 mb-4">
     <MudStack Row="true" AlignItems="AlignItems.Center">
@@ -71,6 +137,8 @@
             }
         </MudTd>
         <MudTd Style="text-align:right">
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                           OnClick="() => EditAsync(context)" />
             <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
                            OnClick="() => DeleteAsync(context)" />
         </MudTd>
@@ -81,7 +149,6 @@
 </MudTable>
 
 @code {
-    // Ключі сортування для колонок із складним вмістом
     private static string MovieSortKey(Ticket t) =>
         (t.Session?.Movie?.Title ?? string.Empty) + " " +
         (t.Session?.SessionDate.ToString("yyyyMMdd") ?? string.Empty) + " " +
@@ -93,9 +160,104 @@
     private static string CustomerSortKey(Ticket t) =>
         (t.Customer?.LastName ?? string.Empty) + " " + (t.Customer?.FirstName ?? string.Empty);
 
-    // Неоплачені квитки (0) йдуть першими при сортуванні за зростанням
     private decimal PaymentSortKey(Ticket t) =>
         _payments.TryGetValue(t.TicketId, out var p) ? p.Amount : 0m;
+
+    private Ticket _editing = NewTicket();
+    private List<Session> _formSessions = new();
+    private List<Seat> _formSeats = new();
+    private List<Customer> _formCustomers = new();
+    private HashSet<int> _occupiedSeatIds = new();
+
+    private static Ticket NewTicket() => new() { Status = TicketStatus.All.First() };
+    private bool SeatLocked => _editing.TicketId != 0 && _payments.ContainsKey(_editing.TicketId);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        _formSessions = (await SessionService.SearchAsync(null, null, null))
+            .Where(x => x.SessionDate >= today)
+            .OrderBy(x => x.SessionDate).ThenBy(x => x.SessionTime)
+            .ToList();
+        _formCustomers = (await CustomerService.SearchAsync(null))
+            .OrderBy(c => c.LastName).ThenBy(c => c.FirstName)
+            .ToList();
+    }
+
+    private async Task OnSessionChangedAsync(int sessionId)
+    {
+        _editing.SessionId = sessionId;
+        _editing.SeatId = 0;   
+        await LoadSeatsAsync();
+    }
+
+    private void OnSeatChanged(int seatId)
+    {
+        _editing.SeatId = seatId;
+        var seat = _formSeats.FirstOrDefault(x => x.SeatId == seatId);
+        if (seat is not null) _editing.Price = seat.Price; 
+    }
+
+    private async Task LoadSeatsAsync()
+    {
+        _formSeats = new();
+        _occupiedSeatIds = new();
+
+        var session = _formSessions.FirstOrDefault(x => x.SessionId == _editing.SessionId);
+        if (session is null) return;
+
+        _formSeats = (await SeatService.GetByHallAsync(session.HallId))
+            .OrderBy(x => x.RowNumber).ThenBy(x => x.SeatNumber)
+            .ToList();
+
+        var all = await TicketService.SearchAsync(null, null);
+        _occupiedSeatIds = all
+            .Where(t => t.SessionId == _editing.SessionId && t.TicketId != _editing.TicketId)
+            .Select(t => t.SeatId)
+            .ToHashSet();
+    }
+
+    private async Task EditAsync(Ticket t)
+    {
+        _editing = new Ticket
+        {
+            TicketId = t.TicketId,
+            SessionId = t.SessionId,
+            SeatId = t.SeatId,
+            CustomerId = t.CustomerId,
+            Price = t.Price,
+            Status = t.Status
+        };
+
+        if (_formSessions.All(x => x.SessionId != t.SessionId) && t.Session is not null)
+            _formSessions.Insert(0, t.Session);
+
+        await LoadSeatsAsync();
+    }
+
+    private void ResetForm()
+    {
+        _editing = NewTicket();
+        _formSeats = new();
+        _occupiedSeatIds = new();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing.SessionId == 0) { Snackbar.Add("Оберіть сеанс", Severity.Warning); return; }
+        if (_editing.SeatId == 0) { Snackbar.Add("Оберіть місце", Severity.Warning); return; }
+        if (_editing.CustomerId == 0) { Snackbar.Add("Оберіть клієнта", Severity.Warning); return; }
+
+        var result = await TicketService.SaveAsync(_editing);
+        if (!result.Success)
+        {
+            Snackbar.Add(result.Error!, Severity.Error);
+            return;
+        }
+        Snackbar.Add("Збережено", Severity.Success);
+        ResetForm();
+        await LoadAsync();
+    }
 
     [SupplyParameterFromQuery] public int? CustomerId { get; set; }
 

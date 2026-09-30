@@ -1,0 +1,36 @@
+@using System.Globalization
+
+<style>
+    .sbc-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .sbc-label { flex: 0 0 36%; max-width: 36%; font-size: .95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sbc-track { flex: 1; height: 16px; border-radius: 8px; background: rgba(128, 128, 128, .18); overflow: hidden; }
+    .sbc-fill { height: 100%; border-radius: 8px; min-width: 2px; }
+    .sbc-value { flex: 0 0 auto; min-width: 72px; text-align: right; font-weight: 500; }
+</style>
+
+@if (Values.Count == 0)
+{
+    <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary)">Немає даних за обраний період</MudText>
+}
+else
+{
+    var max = Values.Max();
+    for (var i = 0; i < Values.Count; i++)
+    {
+        var pct = max > 0 ? Values[i] / max * 100 : 0;
+        <div class="sbc-row" title="@Labels[i]">
+            <div class="sbc-label">@Labels[i]</div>
+            <div class="sbc-track">
+                <div class="sbc-fill" style="width:@(pct.ToString("0.##", CultureInfo.InvariantCulture))%; background:@Color"></div>
+            </div>
+            <div class="sbc-value">@Values[i].ToString(ValueFormat, CultureInfo.CurrentCulture)</div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public List<string> Labels { get; set; } = new();
+    [Parameter] public List<double> Values { get; set; } = new();
+    [Parameter] public string ValueFormat { get; set; } = "0.##";
+    [Parameter] public string Color { get; set; } = "var(--mud-palette-primary)";
+}

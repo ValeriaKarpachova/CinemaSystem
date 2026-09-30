@@ -32,22 +32,26 @@ else
                 <MudText Typo="Typo.h5">@_summary!.TotalRevenue.ToString("0.00")</MudText>
             </MudPaper>
         </MudItem>
+
         <MudItem xs="6" sm="3">
             <MudPaper Class="pa-4">
                 <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary)">Продано квитків</MudText>
                 <MudText Typo="Typo.h5">@_summary!.TicketsSold</MudText>
             </MudPaper>
         </MudItem>
+
         <MudItem xs="6" sm="3">
             <MudPaper Class="pa-4">
                 <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary)">Середній чек</MudText>
                 <MudText Typo="Typo.h5">@_summary!.AvgTicketPrice.ToString("0.00")</MudText>
             </MudPaper>
         </MudItem>
+
         <MudItem xs="6" sm="3">
             <MudPaper Class="pa-4">
                 <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary)">Найпопулярніший фільм</MudText>
                 <MudText Typo="Typo.subtitle1">@(_summary!.TopMovieTitle ?? "—")</MudText>
+
                 @if (_summary.TopMovieTitle is not null)
                 {
                     <MudText Typo="Typo.caption">@_summary.TopMovieTickets квитків</MudText>
@@ -58,42 +62,92 @@ else
 
     <MudGrid>
         <MudItem xs="12" md="6">
-            <MudPaper Class="pa-4 mb-4">
-                <MudText Typo="Typo.subtitle1" Class="mb-2">Виручка та квитки по фільмах</MudText>
-                <MudTable Items="_movieRevenue" Dense="true" Hover="true">
-                    <HeaderContent>
-                        <MudTh><MudTableSortLabel SortBy="new Func<MovieRevenueRow, object>(x => x.Title ?? string.Empty)">Фільм</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<MovieRevenueRow, object>(x => x.TicketsSold)">Квитків</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<MovieRevenueRow, object>(x => x.TotalRevenue)">Виручка</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<MovieRevenueRow, object>(x => x.AvgPrice)">Сер. ціна</MudTableSortLabel></MudTh>
-                    </HeaderContent>
-                    <RowTemplate>
-                        <MudTd>@context.Title</MudTd>
-                        <MudTd>@context.TicketsSold</MudTd>
-                        <MudTd>@context.TotalRevenue.ToString("0.00")</MudTd>
-                        <MudTd>@context.AvgPrice.ToString("0.00")</MudTd>
-                    </RowTemplate>
-                    <NoRecordsContent>
-                        <MudText>Немає даних за обраний період</MudText>
-                    </NoRecordsContent>
-                </MudTable>
-            </MudPaper>
-        </MudItem>
+    <MudPaper Class="pa-4 mb-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">
+            Виручка та квитки по фільмах
+        </MudText>
+
+        <MudTable Items="_movieRevenue" Dense="true" Hover="true">
+            <HeaderContent>
+                <MudTh>
+                    <MudTableSortLabel SortBy="new Func<MovieRevenueRow, object>(x => x.Title ?? string.Empty)">
+                        Фільм
+                    </MudTableSortLabel>
+                </MudTh>
+
+                <MudTh>
+                    <MudTableSortLabel SortBy="new Func<MovieRevenueRow, object>(x => x.TicketsSold)">
+                        Квитків
+                    </MudTableSortLabel>
+                </MudTh>
+
+                <MudTh>
+                    <MudTableSortLabel SortBy="new Func<MovieRevenueRow, object>(x => x.TotalRevenue)">
+                        Виручка
+                    </MudTableSortLabel>
+                </MudTh>
+
+                <MudTh>
+                    <MudTableSortLabel SortBy="new Func<MovieRevenueRow, object>(x => x.AvgPrice)">
+                        Сер. ціна
+                    </MudTableSortLabel>
+                </MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd>@context.Title</MudTd>
+                <MudTd>@context.TicketsSold</MudTd>
+                <MudTd>@context.TotalRevenue.ToString("0.00")</MudTd>
+                <MudTd>@context.AvgPrice.ToString("0.00")</MudTd>
+            </RowTemplate>
+
+            <NoRecordsContent>
+                <MudText>Немає даних за обраний період</MudText>
+            </NoRecordsContent>
+        </MudTable>
+    </MudPaper>
+</MudItem>
 
         <MudItem xs="12" md="6">
             <MudPaper Class="pa-4 mb-4">
-                <MudText Typo="Typo.subtitle1" Class="mb-2">Завантаженість залів</MudText>
+                <MudText Typo="Typo.subtitle1" Class="mb-2">
+                    Завантаженість залів
+                </MudText>
+
+                <div class="mb-4">
+                    <SimpleBarChart Labels="@_hallLabels"
+                                    Values="@_hallTicketsValues"
+                                    ValueFormat="0"
+                                    Color="var(--mud-palette-primary)" />
+                </div>
+
                 <MudTable Items="_hallLoad" Dense="true" Hover="true">
                     <HeaderContent>
-                        <MudTh><MudTableSortLabel SortBy="new Func<HallLoadRow, object>(x => x.HallName ?? string.Empty)">Зал</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<HallLoadRow, object>(x => x.SessionsCount)">Сеансів</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<HallLoadRow, object>(x => x.TicketsSold)">Квитків</MudTableSortLabel></MudTh>
+                        <MudTh>
+                            <MudTableSortLabel SortBy="new Func<HallLoadRow, object>(x => x.HallName ?? string.Empty)">
+                                Зал
+                            </MudTableSortLabel>
+                        </MudTh>
+
+                        <MudTh>
+                            <MudTableSortLabel SortBy="new Func<HallLoadRow, object>(x => x.SessionsCount)">
+                                Сеансів
+                            </MudTableSortLabel>
+                        </MudTh>
+
+                        <MudTh>
+                            <MudTableSortLabel SortBy="new Func<HallLoadRow, object>(x => x.TicketsSold)">
+                                Квитків
+                            </MudTableSortLabel>
+                        </MudTh>
                     </HeaderContent>
+
                     <RowTemplate>
                         <MudTd>@context.HallName</MudTd>
                         <MudTd>@context.SessionsCount</MudTd>
                         <MudTd>@context.TicketsSold</MudTd>
                     </RowTemplate>
+
                     <NoRecordsContent>
                         <MudText>Немає даних за обраний період</MudText>
                     </NoRecordsContent>
@@ -103,18 +157,43 @@ else
 
         <MudItem xs="12">
             <MudPaper Class="pa-4">
-                <MudText Typo="Typo.subtitle1" Class="mb-2">Динаміка виручки по днях</MudText>
+                <MudText Typo="Typo.subtitle1" Class="mb-2">
+                    Динаміка виручки по днях
+                </MudText>
+
+                <div class="mb-4">
+                    <SimpleLineChart Labels="@_revenueLabels"
+                                     Values="@_revenueValues"
+                                     ValueFormat="0.00" />
+                </div>
+
                 <MudTable Items="_dailyRevenue" Dense="true" Hover="true">
                     <HeaderContent>
-                        <MudTh><MudTableSortLabel SortBy="new Func<DailyRevenueRow, object>(x => x.PayDay)">Дата</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<DailyRevenueRow, object>(x => x.DailyRevenue)">Виручка за день</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<DailyRevenueRow, object>(x => x.CumulativeRevenue)">Наростаючим підсумком</MudTableSortLabel></MudTh>
+                        <MudTh>
+                            <MudTableSortLabel SortBy="new Func<DailyRevenueRow, object>(x => x.PayDay)">
+                                Дата
+                            </MudTableSortLabel>
+                        </MudTh>
+
+                        <MudTh>
+                            <MudTableSortLabel SortBy="new Func<DailyRevenueRow, object>(x => x.DailyRevenue)">
+                                Виручка за день
+                            </MudTableSortLabel>
+                        </MudTh>
+
+                        <MudTh>
+                            <MudTableSortLabel SortBy="new Func<DailyRevenueRow, object>(x => x.CumulativeRevenue)">
+                                Наростаючим підсумком
+                            </MudTableSortLabel>
+                        </MudTh>
                     </HeaderContent>
+
                     <RowTemplate>
                         <MudTd>@context.PayDay.ToString("dd.MM.yyyy")</MudTd>
                         <MudTd>@context.DailyRevenue.ToString("0.00")</MudTd>
                         <MudTd>@context.CumulativeRevenue.ToString("0.00")</MudTd>
                     </RowTemplate>
+
                     <NoRecordsContent>
                         <MudText>Немає даних за обраний період</MudText>
                     </NoRecordsContent>
@@ -134,16 +213,30 @@ else
     private List<HallLoadRow> _hallLoad = new();
     private List<DailyRevenueRow> _dailyRevenue = new();
 
+    private List<string> _hallLabels = new();
+    private List<double> _hallTicketsValues = new();
+
+    private List<string> _revenueLabels = new();
+    private List<double> _revenueValues = new();
+
     private DateTime? FromValue
     {
         get => _from.ToDateTime(TimeOnly.MinValue);
-        set { if (value is not null) _from = DateOnly.FromDateTime(value.Value); }
+        set
+        {
+            if (value is not null)
+                _from = DateOnly.FromDateTime(value.Value);
+        }
     }
 
     private DateTime? ToValue
     {
         get => _to.ToDateTime(TimeOnly.MinValue);
-        set { if (value is not null) _to = DateOnly.FromDateTime(value.Value); }
+        set
+        {
+            if (value is not null)
+                _to = DateOnly.FromDateTime(value.Value);
+        }
     }
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
@@ -164,6 +257,22 @@ else
         _movieRevenue = await ReportService.GetMovieRevenueAsync(_from, _to);
         _hallLoad = await ReportService.GetHallLoadAsync(_from, _to);
         _dailyRevenue = await ReportService.GetDailyRevenueAsync(_from, _to);
+
+        _hallLabels = _hallLoad
+            .Select(h => h.HallName ?? "")
+            .ToList();
+
+        _hallTicketsValues = _hallLoad
+            .Select(h => (double)h.TicketsSold)
+            .ToList();
+
+        _revenueLabels = _dailyRevenue
+            .Select(d => d.PayDay.ToString("dd.MM"))
+            .ToList();
+
+        _revenueValues = _dailyRevenue
+            .Select(d => (double)d.DailyRevenue)
+            .ToList();
 
         _loading = false;
     }

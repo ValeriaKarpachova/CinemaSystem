@@ -1,0 +1,101 @@
+@using System.Globalization
+
+@if (Values.Count == 0)
+{
+    <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary)">Немає даних за обраний період</MudText>
+}
+else
+{
+    <svg viewBox="0 0 @W @H" style="width:100%; height:auto; display:block;" role="img">
+        @foreach (var t in _ticks)
+        {
+            var y = YOf(t);
+            <line x1="@F(Left)" x2="@F(W - Right)" y1="@F(y)" y2="@F(y)"
+                  stroke="var(--mud-palette-lines-default)" stroke-width="1" />
+            @Txt(Left - 8, y + 4, "end", TickLabel(t))
+        }
+
+        <polygon points="@_areaPoints" fill="@Color" fill-opacity="0.15" />
+        <polyline points="@_linePoints" fill="none" stroke="@Color" stroke-width="2.5"
+                  stroke-linejoin="round" stroke-linecap="round" />
+
+        @if (Values.Count <= 40)
+        {
+            @for (var i = 0; i < Values.Count; i++)
+            {
+                <circle cx="@F(XOf(i))" cy="@F(YOf(Values[i]))" r="4.5" fill="@Color"
+                        stroke="var(--mud-palette-surface)" stroke-width="1.5">
+                    <title>@Labels[i]: @Values[i].ToString(ValueFormat, CultureInfo.CurrentCulture)</title>
+                </circle>
+            }
+        }
+
+        @foreach (var i in _xLabelIdx)
+        {
+            @Txt(XOf(i), H - 8, "middle", Labels[i])
+        }
+    </svg>
+}
+
+@code {
+    [Parameter] public List<string> Labels { get; set; } = new();
+    [Parameter] public List<double> Values { get; set; } = new();
+    [Parameter] public string ValueFormat { get; set; } = "0.00";
+    [Parameter] public string Color { get; set; } = "var(--mud-palette-primary)";
+
+    private const int W = 800, H = 300;
+    private const double Left = 56, Right = 16, Top = 16, Bottom = 32;
+    private const double PlotW = W - Left - Right;
+    private const double PlotH = H - Top - Bottom;
+
+    private double _niceMax = 1;
+    private readonly List<double> _ticks = new();
+    private readonly List<int> _xLabelIdx = new();
+    private string _linePoints = "";
+    private string _areaPoints = "";
+
+    protected override void OnParametersSet()
+    {
+        _ticks.Clear();
+        _xLabelIdx.Clear();
+        if (Values.Count == 0) return;
+
+        _niceMax = NiceMax(Values.Max());
+        for (var i = 0; i <= 4; i++) _ticks.Add(_niceMax * i / 4);
+
+        var n = Values.Count;
+        var pts = new List<string>(n);
+        for (var i = 0; i < n; i++) pts.Add($"{F(XOf(i))},{F(YOf(Values[i]))}");
+        _linePoints = string.Join(" ", pts);
+        _areaPoints = $"{F(XOf(0))},{F(YOf(0))} {_linePoints} {F(XOf(n - 1))},{F(YOf(0))}";
+
+        var step = Math.Max(1, (int)Math.Ceiling((n - 1) / 7.0));
+        for (var i = 0; i < n; i += step) _xLabelIdx.Add(i);
+    }
+
+    private double XOf(int i) =>
+        Values.Count == 1 ? Left + PlotW / 2 : Left + PlotW * i / (Values.Count - 1);
+
+    private double YOf(double v) => Top + PlotH * (1 - v / _niceMax);
+
+    private static MarkupString Txt(double x, double y, string anchor, string content) =>
+        new($"<text x=\"{F(x)}\" y=\"{F(y)}\" text-anchor=\"{anchor}\" font-size=\"12\" " +
+            $"fill=\"var(--mud-palette-text-secondary)\">{System.Net.WebUtility.HtmlEncode(content)}</text>");
+
+    private static string F(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static double NiceMax(double m)
+    {
+        if (m <= 0) return 1;
+        var exp = Math.Pow(10, Math.Floor(Math.Log10(m)));
+        var f = m / exp;
+        var nf = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
+        return nf * exp;
+    }
+
+    private static string TickLabel(double t)
+    {
+        if (t >= 1000) return (t / 1000).ToString("0.##", CultureInfo.InvariantCulture) + "k";
+        return t.ToString(t < 10 && t != Math.Floor(t) ? "0.##" : "0", CultureInfo.InvariantCulture);
+    }
+}

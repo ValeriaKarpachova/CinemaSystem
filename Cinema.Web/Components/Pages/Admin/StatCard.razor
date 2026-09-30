@@ -1,10 +1,10 @@
-﻿<MudPaper Class="pa-6" Elevation="2" Style="cursor:pointer; min-height:150px; display:flex; align-items:center;" @onclick="Navigate">
+﻿<MudPaper Class="pa-6" Elevation="@(Accent ? 4 : 2)" Style="@RootStyle" @onclick="Navigate">
     <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%">
         <MudStack Spacing="1">
-            <MudText Typo="Typo.subtitle1" Style="color: var(--mud-palette-text-secondary)">@Title</MudText>
-            <MudText Typo="Typo.h3" Style="font-weight:600">@Value</MudText>
+            <MudText Typo="@(Accent ? Typo.h6 : Typo.subtitle1)" Style="@TitleStyle">@Title</MudText>
+            <MudText Typo="Typo.h3" Style="@ValueStyle">@Value</MudText>
         </MudStack>
-        <MudIcon Icon="@Icon" Color="Color.Primary" Style="font-size:4rem" />
+        <MudIcon Icon="@Icon" Color="@(Accent ? Color.Inherit : Color.Primary)" Style="@IconStyle" />
     </MudStack>
 </MudPaper>
 
@@ -13,8 +13,32 @@
     [Parameter] public string Value { get; set; } = "";
     [Parameter] public string Icon { get; set; } = "";
     [Parameter] public string Href { get; set; } = "";
+    [Parameter] public Color Color { get; set; } = Color.Default;
+    [Parameter] public Color AccentColor { get; set; } = Color.Default;
 
     [Inject] private NavigationManager Nav { get; set; } = null!;
+
+    private Color Effective => AccentColor != Color.Default ? AccentColor : Color;
+
+    private bool Accent => Effective != Color.Default;
+
+    private string PaletteName => Effective.ToString().ToLowerInvariant();
+
+    private string RootStyle => Accent
+        ? $"width:100%; min-height:190px; cursor:pointer; display:flex; align-items:center; background:var(--mud-palette-{PaletteName}); color:var(--mud-palette-{PaletteName}-text);"
+        : "width:100%; min-height:170px; cursor:pointer; display:flex; align-items:center;";
+
+    private string TitleStyle => Accent
+        ? "color:inherit; text-transform:uppercase; letter-spacing:1px; font-weight:600; opacity:.9;"
+        : "color: var(--mud-palette-text-secondary);";
+
+    private string ValueStyle => Accent
+        ? "font-weight:700; font-size:3rem; color:inherit;"
+        : "font-weight:600;";
+
+    private string IconStyle => Accent
+        ? "font-size:4.5rem; opacity:.35;"
+        : "font-size:4rem;";
 
     private void Navigate() => Nav.NavigateTo(Href);
 }

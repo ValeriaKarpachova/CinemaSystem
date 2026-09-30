@@ -11,26 +11,50 @@
 
 <PageTitle>Cinema Admin</PageTitle>
 
-<MudGrid Spacing="4" Class="mb-8">
-    <MudItem xs="12" sm="6" md="4">
+<style>
+    .stat-grid {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: 1.5fr 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        margin-bottom: 32px;
+    }
+    .stat-grid > div { display: flex; }
+    .stat-grid > .stat-main-1 { grid-column: 1; grid-row: 1; }
+    .stat-grid > .stat-main-2 { grid-column: 1; grid-row: 2; }
+
+    @@media (max-width: 959px) {
+        .stat-grid { grid-template-columns: 1fr 1fr; grid-template-rows: auto; }
+        .stat-grid > .stat-main-1,
+        .stat-grid > .stat-main-2 { grid-column: 1 / -1; grid-row: auto; }
+    }
+    @@media (max-width: 599px) {
+        .stat-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="stat-grid">
+    <div class="stat-main-1">
+        <StatCard Title="Виручка" Value="@_revenue.ToString("0.00")" Icon="@Icons.Material.Filled.Payments"
+                  Href="/admin/payments" Color="Color.Primary" />
+    </div>
+    <div class="stat-main-2">
+        <StatCard Title="Продано квитків" Value="@_ticketsPaid.ToString()" Icon="@Icons.Material.Filled.ConfirmationNumber"
+                  Href="/admin/tickets" Color="Color.Secondary" />
+    </div>
+    <div>
         <StatCard Title="Жанри" Value="@_genresCount.ToString()" Icon="@Icons.Material.Filled.Category" Href="/admin/genres" />
-    </MudItem>
-    <MudItem xs="12" sm="6" md="4">
+    </div>
+    <div>
         <StatCard Title="Фільми" Value="@_moviesCount.ToString()" Icon="@Icons.Material.Filled.Movie" Href="/admin/movies" />
-    </MudItem>
-    <MudItem xs="12" sm="6" md="4">
+    </div>
+    <div>
         <StatCard Title="Зали" Value="@_hallsCount.ToString()" Icon="@Icons.Material.Filled.MeetingRoom" Href="/admin/halls" />
-    </MudItem>
-    <MudItem xs="12" sm="6" md="4">
+    </div>
+    <div>
         <StatCard Title="Сеанси сьогодні" Value="@_sessionsToday.ToString()" Icon="@Icons.Material.Filled.EventAvailable" Href="/admin/sessions" />
-    </MudItem>
-    <MudItem xs="12" sm="6" md="4">
-        <StatCard Title="Продано квитків" Value="@_ticketsPaid.ToString()" Icon="@Icons.Material.Filled.ConfirmationNumber" Href="/admin/tickets" />
-    </MudItem>
-    <MudItem xs="12" sm="6" md="4">
-        <StatCard Title="Виручка" Value="@_revenue.ToString("0.00")" Icon="@Icons.Material.Filled.Payments" Href="/admin/payments" />
-    </MudItem>
-</MudGrid>
+    </div>
+</div>
 
 <MudText Typo="Typo.h5" Class="mb-4">Аналітика за останні 7 днів</MudText>
 
@@ -41,8 +65,8 @@
 else
 {
     <MudGrid Spacing="4">
-        <MudItem xs="12" md="6">
-            <MudPaper Class="pa-6" Elevation="2" Style="height:100%; min-height:260px">
+        <MudItem xs="12" md="6" Class="d-flex">
+            <MudPaper Class="pa-6" Elevation="2" Style="width:100%; min-height:300px">
                 <MudText Typo="Typo.h6" Class="mb-4">Топ-3 популярних фільми</MudText>
                 @if (_topMovies.Count == 0)
                 {
@@ -62,8 +86,8 @@ else
                 }
             </MudPaper>
         </MudItem>
-        <MudItem xs="12" md="6">
-            <MudPaper Class="pa-6" Elevation="2" Style="height:100%; min-height:260px">
+        <MudItem xs="12" md="6" Class="d-flex">
+            <MudPaper Class="pa-6" Elevation="2" Style="width:100%; min-height:300px">
                 <MudText Typo="Typo.h6" Class="mb-4">Виручка по днях</MudText>
                 @if (_dailyRevenue.Count == 0)
                 {

@@ -55,7 +55,7 @@ app.UseAntiforgery();
 app.MapPost("/logout", async (HttpContext ctx) =>
 {
     await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-    return Results.Redirect("/login");
+    return Results.Redirect("/");
 });
 
 app.MapRazorPages();

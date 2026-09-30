@@ -43,55 +43,39 @@
     .cinema-page-title {
         font-weight: 600;
     }
+
+    .cinema-logout-form {
+        display: inline-flex;
+        margin: 0 4px 0 8px;
+    }
 </style>
 
 <MudLayout>
     <MudAppBar Elevation="1">
-    <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
-                   OnClick="@(() => _drawerOpen = !_drawerOpen)" Title="Меню" />
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                       OnClick="@(() => _drawerOpen = !_drawerOpen)" Title="Меню" />
 
-    <MudText Typo="Typo.h5" Class="cinema-page-title ml-2">@_pageTitle</MudText>
+        <MudText Typo="Typo.h5" Class="cinema-page-title ml-2">@_pageTitle</MudText>
 
-    <MudSpacer />
+        <MudSpacer />
 
-    <MudIconButton Icon="@Icons.Material.Filled.Home" Color="Color.Inherit"
-                   Href="/" Title="На головну" />
-    <MudIconButton Icon="@Icons.Material.Filled.Refresh" Color="Color.Inherit"
-                   OnClick="Reload" Title="Оновити сторінку" />
+        <MudIconButton Icon="@Icons.Material.Filled.Home" Color="Color.Inherit"
+                       Href="/admin" Title="На головну" />
+        <MudIconButton Icon="@Icons.Material.Filled.Refresh" Color="Color.Inherit"
+                       OnClick="Reload" Title="Оновити сторінку" />
+        <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                       Color="Color.Inherit" OnClick="ToggleThemeAsync"
+                       Title="@(_isDarkMode ? "Світла тема" : "Темна тема")" />
 
-    <AuthorizeView Context="authContext">
-        <Authorized>
-            <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
-                <ActivatorContent>
-                    <MudAvatar Size="Size.Medium" Color="Color.Secondary" Class="ml-2" Style="cursor:pointer;">
-                        <MudIcon Icon="@Icons.Material.Filled.Person" />
-                    </MudAvatar>
-                </ActivatorContent>
-                <ChildContent>
-                    <div class="px-4 py-2">
-                        <MudText Typo="Typo.subtitle1"><b>@authContext.User.Identity!.Name</b></MudText>
-                        <MudText Typo="Typo.caption">Адміністратор</MudText>
-                    </div>
-                    <MudDivider Class="my-1" />
-                    <MudMenuItem Icon="@Icons.Material.Filled.AccountCircle" OnClick="ShowProfile">Профіль</MudMenuItem>
-                    <MudMenuItem Icon="@Icons.Material.Filled.Settings" OnClick="ShowSettings">Налаштування</MudMenuItem>
-                    <MudDivider Class="my-1" />
-                    <li class="mud-list-item">
-                        <form method="post" action="/logout">
-                            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Text" Color="Color.Error"
-                                       FullWidth="true" StartIcon="@Icons.Material.Filled.Logout"
-                                       Style="justify-content:flex-start">Вийти</MudButton>
-                        </form>
-                    </li>
-                </ChildContent>
-            </MudMenu>
-        </Authorized>
-    </AuthorizeView>
-
-    <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
-                   Color="Color.Inherit" OnClick="ToggleThemeAsync"
-                   Title="@(_isDarkMode ? "Світла тема" : "Темна тема")" />
-</MudAppBar>
+        <AuthorizeView>
+            <Authorized>
+                <form method="post" action="/logout" class="cinema-logout-form">
+                    <MudButton ButtonType="ButtonType.Submit" Color="Color.Inherit" Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Logout">Вийти</MudButton>
+                </form>
+            </Authorized>
+        </AuthorizeView>
+    </MudAppBar>
 
     <MudDrawer @bind-Open="_drawerOpen" Elevation="2">
         <div class="cinema-drawer-header">
@@ -152,7 +136,9 @@
     private static string ResolveTitle(string relativePath)
     {
         var path = relativePath.Split('?', '#')[0].Trim('/');
-        if (string.IsNullOrEmpty(path)) return "Головна";
+
+        if (string.IsNullOrEmpty(path) || path.Equals("admin", StringComparison.OrdinalIgnoreCase))
+            return "Головна";
 
         var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
@@ -182,10 +168,6 @@
     }
 
     private void Reload() => Nav.NavigateTo(Nav.Uri, forceLoad: true);
-
-    private void ShowProfile() => Snackbar.Add("Профіль: сторінка ще не реалізована", Severity.Info);
-
-    private void ShowSettings() => Snackbar.Add("Налаштування: сторінка ще не реалізована", Severity.Info);
 
     public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
 }
