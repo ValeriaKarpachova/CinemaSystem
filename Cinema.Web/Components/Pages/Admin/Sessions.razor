@@ -4,6 +4,7 @@
 @inject IHallService HallService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>Сеанси</PageTitle>
 

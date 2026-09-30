@@ -3,6 +3,7 @@
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
+@inject AuthenticationStateProvider AuthState
 
 <MudThemeProvider Theme="AppTheme.Theme" @bind-IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
@@ -46,40 +47,51 @@
 
 <MudLayout>
     <MudAppBar Elevation="1">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
-                       OnClick="@(() => _drawerOpen = !_drawerOpen)" Title="Меню" />
+    <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                   OnClick="@(() => _drawerOpen = !_drawerOpen)" Title="Меню" />
 
-        <MudText Typo="Typo.h5" Class="cinema-page-title ml-2">@_pageTitle</MudText>
+    <MudText Typo="Typo.h5" Class="cinema-page-title ml-2">@_pageTitle</MudText>
 
-        <MudSpacer />
+    <MudSpacer />
 
-        <MudIconButton Icon="@Icons.Material.Filled.Home" Color="Color.Inherit"
-                       Href="/" Title="На головну" />
-        <MudIconButton Icon="@Icons.Material.Filled.Refresh" Color="Color.Inherit"
-                       OnClick="Reload" Title="Оновити сторінку" />
-        <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
-                       Color="Color.Inherit" OnClick="ToggleThemeAsync"
-                       Title="@(_isDarkMode ? "Світла тема" : "Темна тема")" />
+    <MudIconButton Icon="@Icons.Material.Filled.Home" Color="Color.Inherit"
+                   Href="/" Title="На головну" />
+    <MudIconButton Icon="@Icons.Material.Filled.Refresh" Color="Color.Inherit"
+                   OnClick="Reload" Title="Оновити сторінку" />
 
-        <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
-            <ActivatorContent>
-                <MudAvatar Size="Size.Medium" Color="Color.Secondary" Class="ml-2" Style="cursor:pointer;">
-                    <MudIcon Icon="@Icons.Material.Filled.Person" />
-                </MudAvatar>
-            </ActivatorContent>
-            <ChildContent>
-                <div class="px-4 py-2">
-                    <MudText Typo="Typo.subtitle1"><b>Адміністратор</b></MudText>
-                    <MudText Typo="Typo.caption">admin@cinema.local</MudText>
-                </div>
-                <MudDivider Class="my-1" />
-                <MudMenuItem Icon="@Icons.Material.Filled.AccountCircle" OnClick="ShowProfile">Профіль</MudMenuItem>
-                <MudMenuItem Icon="@Icons.Material.Filled.Settings" OnClick="ShowSettings">Налаштування</MudMenuItem>
-                <MudDivider Class="my-1" />
-                <MudMenuItem Icon="@Icons.Material.Filled.Logout" IconColor="Color.Error" OnClick="Logout">Вийти</MudMenuItem>
-            </ChildContent>
-        </MudMenu>
-    </MudAppBar>
+    <AuthorizeView Context="authContext">
+        <Authorized>
+            <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
+                <ActivatorContent>
+                    <MudAvatar Size="Size.Medium" Color="Color.Secondary" Class="ml-2" Style="cursor:pointer;">
+                        <MudIcon Icon="@Icons.Material.Filled.Person" />
+                    </MudAvatar>
+                </ActivatorContent>
+                <ChildContent>
+                    <div class="px-4 py-2">
+                        <MudText Typo="Typo.subtitle1"><b>@authContext.User.Identity!.Name</b></MudText>
+                        <MudText Typo="Typo.caption">Адміністратор</MudText>
+                    </div>
+                    <MudDivider Class="my-1" />
+                    <MudMenuItem Icon="@Icons.Material.Filled.AccountCircle" OnClick="ShowProfile">Профіль</MudMenuItem>
+                    <MudMenuItem Icon="@Icons.Material.Filled.Settings" OnClick="ShowSettings">Налаштування</MudMenuItem>
+                    <MudDivider Class="my-1" />
+                    <li class="mud-list-item">
+                        <form method="post" action="/logout">
+                            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Text" Color="Color.Error"
+                                       FullWidth="true" StartIcon="@Icons.Material.Filled.Logout"
+                                       Style="justify-content:flex-start">Вийти</MudButton>
+                        </form>
+                    </li>
+                </ChildContent>
+            </MudMenu>
+        </Authorized>
+    </AuthorizeView>
+
+    <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                   Color="Color.Inherit" OnClick="ToggleThemeAsync"
+                   Title="@(_isDarkMode ? "Світла тема" : "Темна тема")" />
+</MudAppBar>
 
     <MudDrawer @bind-Open="_drawerOpen" Elevation="2">
         <div class="cinema-drawer-header">
@@ -87,7 +99,7 @@
             <MudText Typo="Typo.h5">Cinema Admin</MudText>
         </div>
         <MudNavMenu Class="cinema-nav mt-2">
-            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Головна</MudNavLink>
+            <MudNavLink Href="/admin" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Головна</MudNavLink>
             <MudNavLink Href="/admin/genres" Icon="@Icons.Material.Filled.Category">Жанри</MudNavLink>
             <MudNavLink Href="/admin/movies" Icon="@Icons.Material.Filled.Movie">Фільми</MudNavLink>
             <MudNavLink Href="/admin/halls" Icon="@Icons.Material.Filled.MeetingRoom">Зали</MudNavLink>
@@ -174,12 +186,6 @@
     private void ShowProfile() => Snackbar.Add("Профіль: сторінка ще не реалізована", Severity.Info);
 
     private void ShowSettings() => Snackbar.Add("Налаштування: сторінка ще не реалізована", Severity.Info);
-
-    private void Logout()
-    {
-        Snackbar.Add("Ви вийшли з облікового запису", Severity.Success);
-        Nav.NavigateTo("/");
-    }
 
     public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
 }

@@ -1,0 +1,32 @@
+﻿@page "/login"
+@model Cinema.Web.Pages.LoginModel
+
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="utf-8" />
+    <title>Вхід — Cinema Admin</title>
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    <style>
+        body { font-family: Roboto, sans-serif; background: #F4F4F8; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .card { background: #fff; padding: 32px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.15); width: 320px; }
+        input { width: 100%; padding: 10px; margin: 8px 0; box-sizing: border-box; border: 1px solid #A8A9BD; border-radius: 4px; }
+        button { width: 100%; padding: 10px; background: #101554; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        .error { color: #c62828; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2 style="color:#101554">Cinema Admin</h2>
+        <form method="post">
+            <input type="text" name="Login" placeholder="Логін" required />
+            <input type="password" name="Password" placeholder="Пароль" required />
+            @if (!string.IsNullOrEmpty(Model.Error))
+            {
+                <p class="error">@Model.Error</p>
+            }
+            <button type="submit">Увійти</button>
+        </form>
+    </div>
+</body>
+</html>

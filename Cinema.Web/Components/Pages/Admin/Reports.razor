@@ -1,6 +1,7 @@
 ﻿@page "/admin/reports"
 @using Cinema.Domain.Reports
 @inject IReportService ReportService
+@attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>Звіти</PageTitle>
 

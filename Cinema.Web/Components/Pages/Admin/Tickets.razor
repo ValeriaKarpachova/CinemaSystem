@@ -4,6 +4,7 @@
 @inject IPaymentService PaymentService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>Квитки</PageTitle>
 

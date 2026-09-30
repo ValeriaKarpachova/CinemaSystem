@@ -1,4 +1,4 @@
-﻿@page "/"
+﻿@page "/admin"
 @inject IGenreService GenreService
 @inject IMovieService MovieService
 @inject IHallService HallService
@@ -6,6 +6,7 @@
 @inject ITicketService TicketService
 @inject IPaymentService PaymentService
 @inject IReportService ReportService
+@attribute [Authorize(Roles = "Admin")]
 @using Cinema.Domain.Reports
 
 <PageTitle>Cinema Admin</PageTitle>

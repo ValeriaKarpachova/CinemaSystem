@@ -1,5 +1,6 @@
 ﻿@using Cinema.Domain.Common
 @inject IPaymentService PaymentService
+@attribute [Authorize(Roles = "Admin")]
 
 <MudDialog>
     <DialogContent>

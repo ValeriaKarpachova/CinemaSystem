@@ -4,6 +4,7 @@
 @inject ISeatService SeatService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>Місця залу</PageTitle>
 
@@ -128,7 +129,6 @@
         _seats = await SeatService.GetByHallAsync(_selectedHallId);
     }
 
-    // Колір місць збігається з кольором підпису «Ряд N» (основний колір тексту)
     private static string SeatStyle(bool selected) => selected
         ? "min-width:36px; background-color:var(--mud-palette-text-primary); color:var(--mud-palette-surface); border-color:var(--mud-palette-text-primary);"
         : "min-width:36px; color:var(--mud-palette-text-primary); border-color:var(--mud-palette-text-primary);";

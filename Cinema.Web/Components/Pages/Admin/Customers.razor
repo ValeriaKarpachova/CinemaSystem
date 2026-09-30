@@ -2,6 +2,7 @@
 @inject ICustomerService CustomerService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>Клієнти</PageTitle>
 
@@ -68,6 +69,7 @@
         <MudText>Нічого не знайдено</MudText>
     </NoRecordsContent>
 </MudTable>
+
 
 @code {
     private List<Customer> _customers = new();

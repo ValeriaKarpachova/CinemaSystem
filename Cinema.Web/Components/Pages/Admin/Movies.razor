@@ -3,6 +3,7 @@
 @inject IGenreService GenreService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>Фільми</PageTitle>
 
