@@ -6,8 +6,6 @@
 
 <PageTitle>Оплати</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">Оплати</MudText>
-
 <MudPaper Class="pa-4 mb-4">
     <MudSelect T="string" @bind-Value="_searchMethod" @bind-Value:after="LoadAsync"
                Label="Спосіб оплати" Variant="Variant.Outlined" Clearable="true">
@@ -20,13 +18,13 @@
 
 <MudTable Items="_payments" Hover="true" Dense="true">
     <HeaderContent>
-        <MudTh>ID</MudTh>
-        <MudTh>Квиток</MudTh>
-        <MudTh>Фільм / сеанс</MudTh>
-        <MudTh>Клієнт</MudTh>
-        <MudTh>Дата оплати</MudTh>
-        <MudTh>Спосіб</MudTh>
-        <MudTh>Сума</MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Payment, object>(x => x.PaymentId)">ID</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Payment, object>(x => x.TicketId)">Квиток</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Payment, object>(x => MovieSortKey(x))">Фільм / сеанс</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Payment, object>(x => CustomerSortKey(x))">Клієнт</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Payment, object>(x => x.PaymentDate)">Дата оплати</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Payment, object>(x => x.PaymentMethod ?? string.Empty)">Спосіб</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Payment, object>(x => x.Amount)">Сума</MudTableSortLabel></MudTh>
         <MudTh></MudTh>
     </HeaderContent>
     <RowTemplate>
@@ -56,6 +54,14 @@
 </MudTable>
 
 @code {
+    private static string MovieSortKey(Payment p) =>
+        (p.Ticket?.Session?.Movie?.Title ?? string.Empty) + " " +
+        (p.Ticket?.Session?.SessionDate.ToString("yyyyMMdd") ?? string.Empty) + " " +
+        (p.Ticket?.Session?.SessionTime.ToString("HH:mm") ?? string.Empty);
+
+    private static string CustomerSortKey(Payment p) =>
+        (p.Ticket?.Customer?.LastName ?? string.Empty) + " " + (p.Ticket?.Customer?.FirstName ?? string.Empty);
+
     private List<Payment> _payments = new();
     private string? _searchMethod;
 

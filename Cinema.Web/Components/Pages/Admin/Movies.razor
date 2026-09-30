@@ -6,8 +6,6 @@
 
 <PageTitle>Фільми</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">Фільми</MudText>
-
 <MudPaper Class="pa-4 mb-4">
     <MudText Typo="Typo.subtitle1" Class="mb-2">
         @(_editing.MovieId == 0 ? "Новий фільм" : "Редагування фільму")
@@ -76,12 +74,12 @@
 
 <MudTable Items="_movies" Hover="true" Dense="true">
     <HeaderContent>
-        <MudTh>ID</MudTh>
-        <MudTh>Назва</MudTh>
-        <MudTh>Жанр</MudTh>
-        <MudTh>Тривалість</MudTh>
-        <MudTh>Вік</MudTh>
-        <MudTh>Дата виходу</MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Movie, object>(x => x.MovieId)">ID</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Movie, object>(x => x.Title ?? string.Empty)">Назва</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Movie, object>(x => x.Genre?.GenreName ?? string.Empty)">Жанр</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Movie, object>(x => x.Duration)">Тривалість</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Movie, object>(x => x.AgeRating)">Вік</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Movie, object>(x => x.ReleaseDate?.ToString(SortDateFmt) ?? string.Empty)">Дата виходу</MudTableSortLabel></MudTh>
         <MudTh></MudTh>
     </HeaderContent>
     <RowTemplate>
@@ -104,6 +102,7 @@
 </MudTable>
 
 @code {
+    private const string SortDateFmt = "yyyyMMdd";
     private List<Movie> _movies = new();
     private List<Genre> _genres = new();
     private Movie _editing = NewMovie();

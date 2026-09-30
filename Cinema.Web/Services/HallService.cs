@@ -29,7 +29,6 @@ public class HallService : IHallService
 
         hall.Capacity = hall.RowsCount * seatsPerRow;
 
-        // та сама логіка цін, що й у листингу 3.19 (SQL)
         var seats = new List<Seat>();
         for (int r = 1; r <= hall.RowsCount; r++)
             for (int s = 1; s <= seatsPerRow; s++)
@@ -44,7 +43,6 @@ public class HallService : IHallService
         var error = await ValidateNameAndScreenAsync(hall);
         if (error is not null) return OperationResult.Fail(error);
 
-        // змінюємо лише назву й тип екрана; схема місць редагується окремо
         var existing = await _repo.GetByIdAsync(hall.HallId);
         if (existing is null) return OperationResult.Fail("Зал не знайдено.");
 

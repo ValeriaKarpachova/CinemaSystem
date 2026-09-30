@@ -7,8 +7,6 @@
 
 <PageTitle>Місця залу</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">Місця</MudText>
-
 <MudPaper Class="pa-4 mb-4">
     <MudSelect T="int" Value="_selectedHallId" ValueChanged="OnHallChanged"
                Label="Зал" Variant="Variant.Outlined">
@@ -35,22 +33,26 @@
     <MudItem xs="12" md="7">
         <MudPaper Class="pa-4">
             <MudText Typo="Typo.subtitle1" Class="mb-2">Схема залу (натисніть місце, щоб редагувати)</MudText>
-            <MudPaper Outlined="true" Class="pa-1 mb-3" Style="text-align:center">Екран</MudPaper>
+            <MudPaper Outlined="true" Class="pa-1 mb-4" Style="text-align:center; margin-left:80px; margin-right:80px">Екран</MudPaper>
 
             @foreach (var row in _seats.GroupBy(s => s.RowNumber).OrderBy(g => g.Key))
             {
-                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1" Spacing="1">
-                    <MudText Style="width:70px">Ряд @row.Key</MudText>
-                    @foreach (var seat in row.OrderBy(s => s.SeatNumber))
-                    {
-                        <MudTooltip Text="@($"{seat.Price:0.00} грн")">
-                            <MudButton Size="Size.Small" Style="min-width:36px"
-                                       Variant="@(_editing.SeatId == seat.SeatId ? Variant.Filled : Variant.Outlined)"
-                                       Color="Color.Primary"
-                                       OnClick="() => Select(seat)">@seat.SeatNumber</MudButton>
-                        </MudTooltip>
-                    }
-                </MudStack>
+                <div style="position:relative; padding:0 80px; margin-bottom:6px; min-height:36px; display:flex; align-items:center; justify-content:center;">
+                    <MudText Style="position:absolute; left:0; width:70px;">Ряд @row.Key</MudText>
+                    <MudStack Row="true" Spacing="1" Justify="Justify.Center" Wrap="Wrap.Wrap">
+                        @foreach (var seat in row.OrderBy(s => s.SeatNumber))
+                        {
+                            var selected = _editing.SeatId == seat.SeatId;
+                            <MudTooltip Text="@($"{seat.Price:0.00} грн")">
+                                <MudButton Size="Size.Small"
+                                           Variant="@(selected ? Variant.Filled : Variant.Outlined)"
+                                           Color="Color.Default"
+                                           Style="@SeatStyle(selected)"
+                                           OnClick="() => Select(seat)">@seat.SeatNumber</MudButton>
+                            </MudTooltip>
+                        }
+                    </MudStack>
+                </div>
             }
         </MudPaper>
     </MudItem>
@@ -125,6 +127,11 @@
         _hall = await HallService.GetByIdAsync(_selectedHallId);
         _seats = await SeatService.GetByHallAsync(_selectedHallId);
     }
+
+    // Колір місць збігається з кольором підпису «Ряд N» (основний колір тексту)
+    private static string SeatStyle(bool selected) => selected
+        ? "min-width:36px; background-color:var(--mud-palette-text-primary); color:var(--mud-palette-surface); border-color:var(--mud-palette-text-primary);"
+        : "min-width:36px; color:var(--mud-palette-text-primary); border-color:var(--mud-palette-text-primary);";
 
     private void ResetForm() => _editing = new Seat { HallId = _selectedHallId, RowNumber = 1, SeatNumber = 1, Price = 120 };
 

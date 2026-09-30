@@ -7,8 +7,6 @@
 
 <PageTitle>Сеанси</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">Сеанси</MudText>
-
 <MudPaper Class="pa-4 mb-4">
     <MudText Typo="Typo.subtitle1" Class="mb-2">
         @(_editing.SessionId == 0 ? "Новий сеанс" : "Редагування сеансу")
@@ -73,11 +71,11 @@
 
 <MudTable Items="_sessions" Hover="true" Dense="true">
     <HeaderContent>
-        <MudTh>ID</MudTh>
-        <MudTh>Фільм</MudTh>
-        <MudTh>Зал</MudTh>
-        <MudTh>Дата</MudTh>
-        <MudTh>Час</MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Session, object>(x => x.SessionId)">ID</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Session, object>(x => x.Movie?.Title ?? string.Empty)">Фільм</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Session, object>(x => x.Hall?.HallName ?? string.Empty)">Зал</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Session, object>(x => x.SessionDate)">Дата</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Session, object>(x => x.SessionTime)">Час</MudTableSortLabel></MudTh>
         <MudTh></MudTh>
     </HeaderContent>
     <RowTemplate>

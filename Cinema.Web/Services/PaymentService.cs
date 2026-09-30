@@ -46,7 +46,6 @@ public class PaymentService : IPaymentService
         }
         catch (DbUpdateException)
         {
-            // підстраховка UNIQUE (ticket_id), якщо оплату зареєстрували одночасно
             return OperationResult.Fail("Оплата для цього квитка вже зареєстрована.");
         }
 
@@ -76,7 +75,6 @@ public class PaymentService : IPaymentService
         var payment = await _repo.GetByIdAsync(id);
         if (payment is not null)
         {
-            // видалення оплати повертає квиток у стан "Заброньовано"
             var ticket = await _tickets.GetByIdAsync(payment.TicketId);
             if (ticket is not null && ticket.Status == TicketStatus.Paid)
             {

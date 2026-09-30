@@ -45,7 +45,6 @@ public class SeatService : ISeatService
 
     public async Task<OperationResult> DeleteAsync(Seat seat)
     {
-        // capacity у БД має бути > 0, тому останнє місце залу видаляти не дозволяємо
         if (await _seats.CountByHallAsync(seat.HallId) <= 1)
             return OperationResult.Fail("Не можна видалити останнє місце залу.");
 

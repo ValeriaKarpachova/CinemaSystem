@@ -15,7 +15,6 @@ public class HallRepository : Repository<Hall>, IHallRepository
         return await db.Halls.AnyAsync(h => h.HallName == name && h.HallId != (excludeId ?? 0));
     }
 
-    // зал і його місця зберігаються в одній транзакції: або все, або нічого
     public async Task CreateWithSeatsAsync(Hall hall, List<Seat> seats)
     {
         await using var db = await Factory.CreateDbContextAsync();

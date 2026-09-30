@@ -1,0 +1,20 @@
+﻿<MudPaper Class="pa-6" Elevation="2" Style="cursor:pointer; min-height:150px; display:flex; align-items:center;" @onclick="Navigate">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%">
+        <MudStack Spacing="1">
+            <MudText Typo="Typo.subtitle1" Style="color: var(--mud-palette-text-secondary)">@Title</MudText>
+            <MudText Typo="Typo.h3" Style="font-weight:600">@Value</MudText>
+        </MudStack>
+        <MudIcon Icon="@Icon" Color="Color.Primary" Style="font-size:4rem" />
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public string Icon { get; set; } = "";
+    [Parameter] public string Href { get; set; } = "";
+
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+
+    private void Navigate() => Nav.NavigateTo(Href);
+}

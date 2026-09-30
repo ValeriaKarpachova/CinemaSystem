@@ -24,7 +24,6 @@ public class SessionService : ISessionService
 
         int? excludeId = session.SessionId == 0 ? null : session.SessionId;
 
-        // перевірка на рівні сервісу: швидке й зрозуміле повідомлення
         if (await _repo.ConflictExistsAsync(session.HallId, session.SessionDate, session.SessionTime, excludeId))
             return OperationResult.Fail("У цьому залі вже є сеанс на обрані дату й час.");
 
@@ -35,8 +34,6 @@ public class SessionService : ISessionService
         }
         catch (DbUpdateException)
         {
-            // підстраховка: обмеження UNIQUE (hall_id, session_date, session_time) з боку БД,
-            // якщо два адміністратори зберегли конфліктний сеанс одночасно
             return OperationResult.Fail("Конфлікт розкладу: сеанс у цьому залі на цей час щойно з'явився.");
         }
 

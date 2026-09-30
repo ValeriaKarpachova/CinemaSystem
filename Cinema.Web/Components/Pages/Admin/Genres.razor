@@ -5,8 +5,6 @@
 
 <PageTitle>Жанри</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">Жанри</MudText>
-
 <MudPaper Class="pa-4 mb-4">
     <MudText Typo="Typo.subtitle1" Class="mb-2">
         @(_editing.GenreId == 0 ? "Новий жанр" : "Редагування жанру")
@@ -22,16 +20,16 @@
     </MudStack>
 </MudPaper>
 
+<MudPaper Class="pa-4 mb-4">
+    <MudTextField @bind-Value="_search" Label="Пошук за назвою жанру"
+                  Variant="Variant.Outlined" Immediate="true" DebounceInterval="300"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+</MudPaper>
+
 <MudTable Items="_genres" Hover="true" Dense="true" Filter="FilterFunc">
-    <ToolBarContent>
-        <MudText Typo="Typo.h6">Список жанрів</MudText>
-        <MudSpacer />
-        <MudTextField @bind-Value="_search" Placeholder="Пошук" Immediate="true"
-                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
-    </ToolBarContent>
     <HeaderContent>
-        <MudTh>ID</MudTh>
-        <MudTh>Назва</MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Genre, object>(x => x.GenreId)">ID</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Genre, object>(x => x.GenreName)">Назва</MudTableSortLabel></MudTh>
         <MudTh></MudTh>
     </HeaderContent>
     <RowTemplate>

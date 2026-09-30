@@ -5,8 +5,6 @@
 
 <PageTitle>Зали</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">Зали</MudText>
-
 <MudPaper Class="pa-4 mb-4">
     <MudText Typo="Typo.subtitle1" Class="mb-2">
         @(IsNew ? "Новий зал" : "Редагування залу")
@@ -63,11 +61,11 @@
 
 <MudTable Items="_halls" Hover="true" Dense="true">
     <HeaderContent>
-        <MudTh>ID</MudTh>
-        <MudTh>Назва</MudTh>
-        <MudTh>Екран</MudTh>
-        <MudTh>Ряди</MudTh>
-        <MudTh>Місць</MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Hall, object>(x => x.HallId)">ID</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Hall, object>(x => x.HallName ?? string.Empty)">Назва</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Hall, object>(x => x.ScreenType ?? string.Empty)">Екран</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Hall, object>(x => x.RowsCount)">Ряди</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Hall, object>(x => x.Capacity)">Місць</MudTableSortLabel></MudTh>
         <MudTh></MudTh>
     </HeaderContent>
     <RowTemplate>

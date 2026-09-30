@@ -7,8 +7,6 @@
 
 <PageTitle>Квитки</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">Квитки</MudText>
-
 <MudPaper Class="pa-4 mb-4">
     <MudStack Row="true" AlignItems="AlignItems.Center">
         <MudSelect T="string" @bind-Value="_searchStatus" @bind-Value:after="LoadAsync"
@@ -29,13 +27,13 @@
 
 <MudTable Items="_tickets" Hover="true" Dense="true">
     <HeaderContent>
-        <MudTh>ID</MudTh>
-        <MudTh>Фільм / сеанс</MudTh>
-        <MudTh>Місце</MudTh>
-        <MudTh>Клієнт</MudTh>
-        <MudTh>Ціна</MudTh>
-        <MudTh>Статус</MudTh>
-        <MudTh>Оплата</MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Ticket, object>(x => x.TicketId)">ID</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Ticket, object>(x => MovieSortKey(x))">Фільм / сеанс</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Ticket, object>(x => SeatSortKey(x))">Місце</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Ticket, object>(x => CustomerSortKey(x))">Клієнт</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Ticket, object>(x => x.Price)">Ціна</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Ticket, object>(x => x.Status ?? string.Empty)">Статус</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortBy="new Func<Ticket, object>(x => PaymentSortKey(x))">Оплата</MudTableSortLabel></MudTh>
         <MudTh></MudTh>
     </HeaderContent>
     <RowTemplate>
@@ -82,6 +80,22 @@
 </MudTable>
 
 @code {
+    // Ключі сортування для колонок із складним вмістом
+    private static string MovieSortKey(Ticket t) =>
+        (t.Session?.Movie?.Title ?? string.Empty) + " " +
+        (t.Session?.SessionDate.ToString("yyyyMMdd") ?? string.Empty) + " " +
+        (t.Session?.SessionTime.ToString("HH:mm") ?? string.Empty);
+
+    private static int SeatSortKey(Ticket t) =>
+        (t.Seat?.RowNumber ?? 0) * 10000 + (t.Seat?.SeatNumber ?? 0);
+
+    private static string CustomerSortKey(Ticket t) =>
+        (t.Customer?.LastName ?? string.Empty) + " " + (t.Customer?.FirstName ?? string.Empty);
+
+    // Неоплачені квитки (0) йдуть першими при сортуванні за зростанням
+    private decimal PaymentSortKey(Ticket t) =>
+        _payments.TryGetValue(t.TicketId, out var p) ? p.Amount : 0m;
+
     [SupplyParameterFromQuery] public int? CustomerId { get; set; }
 
     private List<Ticket> _tickets = new();

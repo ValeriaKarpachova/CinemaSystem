@@ -1,0 +1,142 @@
+﻿@page "/"
+@inject IGenreService GenreService
+@inject IMovieService MovieService
+@inject IHallService HallService
+@inject ISessionService SessionService
+@inject ITicketService TicketService
+@inject IPaymentService PaymentService
+@inject IReportService ReportService
+@using Cinema.Domain.Reports
+
+<PageTitle>Cinema Admin</PageTitle>
+
+<MudGrid Spacing="4" Class="mb-8">
+    <MudItem xs="12" sm="6" md="4">
+        <StatCard Title="Жанри" Value="@_genresCount.ToString()" Icon="@Icons.Material.Filled.Category" Href="/admin/genres" />
+    </MudItem>
+    <MudItem xs="12" sm="6" md="4">
+        <StatCard Title="Фільми" Value="@_moviesCount.ToString()" Icon="@Icons.Material.Filled.Movie" Href="/admin/movies" />
+    </MudItem>
+    <MudItem xs="12" sm="6" md="4">
+        <StatCard Title="Зали" Value="@_hallsCount.ToString()" Icon="@Icons.Material.Filled.MeetingRoom" Href="/admin/halls" />
+    </MudItem>
+    <MudItem xs="12" sm="6" md="4">
+        <StatCard Title="Сеанси сьогодні" Value="@_sessionsToday.ToString()" Icon="@Icons.Material.Filled.EventAvailable" Href="/admin/sessions" />
+    </MudItem>
+    <MudItem xs="12" sm="6" md="4">
+        <StatCard Title="Продано квитків" Value="@_ticketsPaid.ToString()" Icon="@Icons.Material.Filled.ConfirmationNumber" Href="/admin/tickets" />
+    </MudItem>
+    <MudItem xs="12" sm="6" md="4">
+        <StatCard Title="Виручка" Value="@_revenue.ToString("0.00")" Icon="@Icons.Material.Filled.Payments" Href="/admin/payments" />
+    </MudItem>
+</MudGrid>
+
+<MudText Typo="Typo.h5" Class="mb-4">Аналітика за останні 7 днів</MudText>
+
+@if (_topMovies.Count == 0 && _dailyRevenue.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">Ще немає даних для аналітики.</MudAlert>
+}
+else
+{
+    <MudGrid Spacing="4">
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-6" Elevation="2" Style="height:100%; min-height:260px">
+                <MudText Typo="Typo.h6" Class="mb-4">Топ-3 популярних фільми</MudText>
+                @if (_topMovies.Count == 0)
+                {
+                    <MudText Typo="Typo.body1" Style="color: var(--mud-palette-text-secondary)">
+                        Немає продажів за цей період
+                    </MudText>
+                }
+                else
+                {
+                    @foreach (var m in _topMovies)
+                    {
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-3">
+                            <MudText Typo="Typo.body1" Style="font-size:1.15rem">@m.Title</MudText>
+                            <MudText Typo="Typo.body1" Style="font-size:1.15rem">@m.TicketsSold квитків</MudText>
+                        </MudStack>
+                    }
+                }
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-6" Elevation="2" Style="height:100%; min-height:260px">
+                <MudText Typo="Typo.h6" Class="mb-4">Виручка по днях</MudText>
+                @if (_dailyRevenue.Count == 0)
+                {
+                    <MudText Typo="Typo.body1" Style="color: var(--mud-palette-text-secondary)">
+                        Немає оплат за цей період
+                    </MudText>
+                }
+                else
+                {
+                    @foreach (var d in _dailyRevenue)
+                    {
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-3">
+                            <MudText Typo="Typo.body1" Style="font-size:1.15rem">@d.PayDay.ToString("dd.MM")</MudText>
+                            <MudText Typo="Typo.body1" Style="font-size:1.15rem">@d.DailyRevenue.ToString("0.00")</MudText>
+                        </MudStack>
+                    }
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+<MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4">
+    <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/admin/reports"
+               EndIcon="@Icons.Material.Filled.ArrowForward">
+        Детальніше
+    </MudButton>
+</MudStack>
+
+@code {
+    private int _genresCount;
+    private int _moviesCount;
+    private int _hallsCount;
+    private int _sessionsToday;
+    private int _ticketsPaid;
+    private decimal _revenue;
+    private List<MovieRevenueRow> _topMovies = new();
+    private List<DailyRevenueRow> _dailyRevenue = new();
+
+    private record Section(string Title, string Description, string Icon, string Href);
+
+    private readonly List<Section> _sections = new()
+    {
+        new("Жанри", "Список жанрів фільмів", Icons.Material.Filled.Category, "/admin/genres"),
+        new("Фільми", "Каталог фільмів з пошуком за назвою та жанром", Icons.Material.Filled.Movie, "/admin/movies"),
+        new("Зали", "Кінозали та їх параметри", Icons.Material.Filled.MeetingRoom, "/admin/halls"),
+        new("Місця", "Схема місць по залах, редагування цін", Icons.Material.Filled.EventSeat, "/admin/seats"),
+        new("Сеанси", "Розклад сеансів, перевірка конфліктів", Icons.Material.Filled.EventAvailable, "/admin/sessions"),
+        new("Клієнти", "Облікові записи клієнтів", Icons.Material.Filled.People, "/admin/customers"),
+        new("Квитки", "Продані та заброньовані квитки", Icons.Material.Filled.ConfirmationNumber, "/admin/tickets"),
+        new("Оплати", "Історія оплат", Icons.Material.Filled.Receipt, "/admin/payments"),
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var genres = await GenreService.GetAllAsync();
+        var movies = await MovieService.SearchAsync(null, null);
+        var halls = await HallService.GetAllAsync();
+        var sessions = await SessionService.SearchAsync(DateOnly.FromDateTime(DateTime.Today), null, null);
+        var tickets = await TicketService.SearchAsync(null, null);
+        var payments = await PaymentService.SearchAsync(null);
+        var from = DateOnly.FromDateTime(DateTime.Today.AddDays(-7));
+        var to = DateOnly.FromDateTime(DateTime.Today);
+
+        _genresCount = genres.Count;
+        _moviesCount = movies.Count;
+        _hallsCount = halls.Count;
+        _sessionsToday = sessions.Count;
+        _ticketsPaid = tickets.Count(t => t.Status == Cinema.Domain.Common.TicketStatus.Paid);
+        _revenue = payments.Sum(p => p.Amount);
+        _topMovies = (await ReportService.GetMovieRevenueAsync(from, to))
+        .OrderByDescending(m => m.TicketsSold)
+        .Take(3)
+        .ToList();
+        _dailyRevenue = await ReportService.GetDailyRevenueAsync(from, to);
+    }
+}

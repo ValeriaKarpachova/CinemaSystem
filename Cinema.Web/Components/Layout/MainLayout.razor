@@ -1,18 +1,92 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
 
-<MudThemeProvider />
+<MudThemeProvider Theme="AppTheme.Theme" @bind-IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
+<style>
+    .cinema-drawer-header {
+        background: var(--mud-palette-primary);
+        color: var(--mud-palette-primary-text);
+        min-height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 0 16px;
+    }
+    .cinema-drawer-header .mud-typography {
+        font-size: 1.4rem;
+        font-weight: 700;
+        letter-spacing: .5px;
+        color: inherit;
+    }
+
+    .cinema-nav .mud-nav-link {
+        padding-top: 12px;
+        padding-bottom: 12px;
+    }
+    .cinema-nav .mud-nav-link .mud-nav-link-text {
+        font-size: 1.1rem;
+        font-weight: 500;
+    }
+    .cinema-nav .mud-nav-link .mud-icon-root {
+        font-size: 1.5rem;
+    }
+
+    .cinema-page-title {
+        font-weight: 600;
+    }
+</style>
+
 <MudLayout>
     <MudAppBar Elevation="1">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
-                       OnClick="@(() => _drawerOpen = !_drawerOpen)" />
-        <MudText Typo="Typo.h6">Cinema Admin</MudText>
+                       OnClick="@(() => _drawerOpen = !_drawerOpen)" Title="Меню" />
+
+        <MudText Typo="Typo.h5" Class="cinema-page-title ml-2">@_pageTitle</MudText>
+
+        <MudSpacer />
+
+        <MudIconButton Icon="@Icons.Material.Filled.Home" Color="Color.Inherit"
+                       Href="/" Title="На головну" />
+        <MudIconButton Icon="@Icons.Material.Filled.Refresh" Color="Color.Inherit"
+                       OnClick="Reload" Title="Оновити сторінку" />
+        <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                       Color="Color.Inherit" OnClick="ToggleThemeAsync"
+                       Title="@(_isDarkMode ? "Світла тема" : "Темна тема")" />
+
+        <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
+            <ActivatorContent>
+                <MudAvatar Size="Size.Medium" Color="Color.Secondary" Class="ml-2" Style="cursor:pointer;">
+                    <MudIcon Icon="@Icons.Material.Filled.Person" />
+                </MudAvatar>
+            </ActivatorContent>
+            <ChildContent>
+                <div class="px-4 py-2">
+                    <MudText Typo="Typo.subtitle1"><b>Адміністратор</b></MudText>
+                    <MudText Typo="Typo.caption">admin@cinema.local</MudText>
+                </div>
+                <MudDivider Class="my-1" />
+                <MudMenuItem Icon="@Icons.Material.Filled.AccountCircle" OnClick="ShowProfile">Профіль</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.Settings" OnClick="ShowSettings">Налаштування</MudMenuItem>
+                <MudDivider Class="my-1" />
+                <MudMenuItem Icon="@Icons.Material.Filled.Logout" IconColor="Color.Error" OnClick="Logout">Вийти</MudMenuItem>
+            </ChildContent>
+        </MudMenu>
     </MudAppBar>
+
     <MudDrawer @bind-Open="_drawerOpen" Elevation="2">
-        <MudNavMenu>
+        <div class="cinema-drawer-header">
+            <MudIcon Icon="@Icons.Material.Filled.Theaters" Size="Size.Large" />
+            <MudText Typo="Typo.h5">Cinema Admin</MudText>
+        </div>
+        <MudNavMenu Class="cinema-nav mt-2">
             <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Головна</MudNavLink>
             <MudNavLink Href="/admin/genres" Icon="@Icons.Material.Filled.Category">Жанри</MudNavLink>
             <MudNavLink Href="/admin/movies" Icon="@Icons.Material.Filled.Movie">Фільми</MudNavLink>
@@ -22,8 +96,10 @@
             <MudNavLink Href="/admin/customers" Icon="@Icons.Material.Filled.People">Клієнти</MudNavLink>
             <MudNavLink Href="/admin/tickets" Icon="@Icons.Material.Filled.ConfirmationNumber">Квитки</MudNavLink>
             <MudNavLink Href="/admin/payments" Icon="@Icons.Material.Filled.Payments">Оплати</MudNavLink>
+            <MudNavLink Href="/admin/reports" Icon="@Icons.Material.Filled.Analytics">Звіти</MudNavLink>
         </MudNavMenu>
     </MudDrawer>
+
     <MudMainContent>
         <MudContainer MaxWidth="MaxWidth.Large" Class="my-4">
             @Body
@@ -33,4 +109,77 @@
 
 @code {
     private bool _drawerOpen = true;
+    private bool _isDarkMode;
+    private string _pageTitle = "Головна";
+
+    private static readonly Dictionary<string, string> Titles = new()
+    {
+        ["genres"] = "Жанри",
+        ["movies"] = "Фільми",
+        ["halls"] = "Зали",
+        ["seats"] = "Місця",
+        ["sessions"] = "Сеанси",
+        ["customers"] = "Клієнти",
+        ["tickets"] = "Квитки",
+        ["payments"] = "Оплати",
+        ["reports"] = "Звіти",
+    };
+
+    protected override void OnInitialized()
+    {
+        _pageTitle = ResolveTitle(Nav.ToBaseRelativePath(Nav.Uri));
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _pageTitle = ResolveTitle(Nav.ToBaseRelativePath(e.Location));
+        InvokeAsync(StateHasChanged);
+    }
+
+    private static string ResolveTitle(string relativePath)
+    {
+        var path = relativePath.Split('?', '#')[0].Trim('/');
+        if (string.IsNullOrEmpty(path)) return "Головна";
+
+        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length >= 4 && parts[1] == "halls" && parts[3] == "seats")
+            return "Місця залу";
+
+        if (parts.Length >= 2 && Titles.TryGetValue(parts[1], out var title))
+            return title;
+
+        return "Cinema Admin";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var saved = await JS.InvokeAsync<string?>("themeStorage.get");
+            _isDarkMode = saved == "dark";
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        _isDarkMode = !_isDarkMode;
+        await JS.InvokeVoidAsync("themeStorage.set", _isDarkMode ? "dark" : "light");
+    }
+
+    private void Reload() => Nav.NavigateTo(Nav.Uri, forceLoad: true);
+
+    private void ShowProfile() => Snackbar.Add("Профіль: сторінка ще не реалізована", Severity.Info);
+
+    private void ShowSettings() => Snackbar.Add("Налаштування: сторінка ще не реалізована", Severity.Info);
+
+    private void Logout()
+    {
+        Snackbar.Add("Ви вийшли з облікового запису", Severity.Success);
+        Nav.NavigateTo("/");
+    }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
 }

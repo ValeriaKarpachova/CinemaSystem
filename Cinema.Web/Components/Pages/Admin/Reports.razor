@@ -1,0 +1,169 @@
+﻿@page "/admin/reports"
+@using Cinema.Domain.Reports
+@inject IReportService ReportService
+
+<PageTitle>Звіти</PageTitle>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudDatePicker @bind-Date="FromValue" @bind-Date:after="LoadAsync"
+                       Label="Період з" Variant="Variant.Outlined" Editable="true" />
+        <MudDatePicker @bind-Date="ToValue" @bind-Date:after="LoadAsync"
+                       Label="Період по" Variant="Variant.Outlined" Editable="true" />
+        <MudButtonGroup Variant="Variant.Outlined">
+            <MudButton OnClick="@(() => SetPreset(7))">7 днів</MudButton>
+            <MudButton OnClick="@(() => SetPreset(30))">30 днів</MudButton>
+            <MudButton OnClick="@(() => SetPreset(365))">Рік</MudButton>
+        </MudButtonGroup>
+    </MudStack>
+</MudPaper>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Class="mb-4" />
+}
+else
+{
+    <MudGrid Class="mb-6">
+        <MudItem xs="6" sm="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary)">Виручка</MudText>
+                <MudText Typo="Typo.h5">@_summary!.TotalRevenue.ToString("0.00")</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary)">Продано квитків</MudText>
+                <MudText Typo="Typo.h5">@_summary!.TicketsSold</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary)">Середній чек</MudText>
+                <MudText Typo="Typo.h5">@_summary!.AvgTicketPrice.ToString("0.00")</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary)">Найпопулярніший фільм</MudText>
+                <MudText Typo="Typo.subtitle1">@(_summary!.TopMovieTitle ?? "—")</MudText>
+                @if (_summary.TopMovieTitle is not null)
+                {
+                    <MudText Typo="Typo.caption">@_summary.TopMovieTickets квитків</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4 mb-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Виручка та квитки по фільмах</MudText>
+                <MudTable Items="_movieRevenue" Dense="true" Hover="true">
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel SortBy="new Func<MovieRevenueRow, object>(x => x.Title ?? string.Empty)">Фільм</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<MovieRevenueRow, object>(x => x.TicketsSold)">Квитків</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<MovieRevenueRow, object>(x => x.TotalRevenue)">Виручка</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<MovieRevenueRow, object>(x => x.AvgPrice)">Сер. ціна</MudTableSortLabel></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.Title</MudTd>
+                        <MudTd>@context.TicketsSold</MudTd>
+                        <MudTd>@context.TotalRevenue.ToString("0.00")</MudTd>
+                        <MudTd>@context.AvgPrice.ToString("0.00")</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText>Немає даних за обраний період</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4 mb-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Завантаженість залів</MudText>
+                <MudTable Items="_hallLoad" Dense="true" Hover="true">
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel SortBy="new Func<HallLoadRow, object>(x => x.HallName ?? string.Empty)">Зал</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<HallLoadRow, object>(x => x.SessionsCount)">Сеансів</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<HallLoadRow, object>(x => x.TicketsSold)">Квитків</MudTableSortLabel></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.HallName</MudTd>
+                        <MudTd>@context.SessionsCount</MudTd>
+                        <MudTd>@context.TicketsSold</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText>Немає даних за обраний період</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Динаміка виручки по днях</MudText>
+                <MudTable Items="_dailyRevenue" Dense="true" Hover="true">
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel SortBy="new Func<DailyRevenueRow, object>(x => x.PayDay)">Дата</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<DailyRevenueRow, object>(x => x.DailyRevenue)">Виручка за день</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<DailyRevenueRow, object>(x => x.CumulativeRevenue)">Наростаючим підсумком</MudTableSortLabel></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.PayDay.ToString("dd.MM.yyyy")</MudTd>
+                        <MudTd>@context.DailyRevenue.ToString("0.00")</MudTd>
+                        <MudTd>@context.CumulativeRevenue.ToString("0.00")</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText>Немає даних за обраний період</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private DateOnly _from = DateOnly.FromDateTime(DateTime.Today.AddDays(-30));
+    private DateOnly _to = DateOnly.FromDateTime(DateTime.Today);
+    private bool _loading = true;
+
+    private ReportSummary? _summary;
+    private List<MovieRevenueRow> _movieRevenue = new();
+    private List<HallLoadRow> _hallLoad = new();
+    private List<DailyRevenueRow> _dailyRevenue = new();
+
+    private DateTime? FromValue
+    {
+        get => _from.ToDateTime(TimeOnly.MinValue);
+        set { if (value is not null) _from = DateOnly.FromDateTime(value.Value); }
+    }
+
+    private DateTime? ToValue
+    {
+        get => _to.ToDateTime(TimeOnly.MinValue);
+        set { if (value is not null) _to = DateOnly.FromDateTime(value.Value); }
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private void SetPreset(int days)
+    {
+        _to = DateOnly.FromDateTime(DateTime.Today);
+        _from = _to.AddDays(-days);
+        _ = LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        _summary = await ReportService.GetSummaryAsync(_from, _to);
+        _movieRevenue = await ReportService.GetMovieRevenueAsync(_from, _to);
+        _hallLoad = await ReportService.GetHallLoadAsync(_from, _to);
+        _dailyRevenue = await ReportService.GetDailyRevenueAsync(_from, _to);
+
+        _loading = false;
+    }
+}
