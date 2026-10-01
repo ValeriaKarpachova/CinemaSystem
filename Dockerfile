@@ -5,6 +5,10 @@ COPY Cinema.Domain/Cinema.Domain.csproj Cinema.Domain/
 COPY Cinema.Infrastructure/Cinema.Infrastructure.csproj Cinema.Infrastructure/
 COPY Cinema.Web/Cinema.Web.csproj Cinema.Web/
 
+COPY Cinema.Web/Components/ Cinema.Web/Components/
+COPY Cinema.Web/Pages/ Cinema.Web/Pages/
+COPY Cinema.Web/wwwroot/ Cinema.Web/wwwroot/
+
 RUN dotnet restore Cinema.Web/Cinema.Web.csproj
 
 COPY . .
