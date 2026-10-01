@@ -74,7 +74,7 @@ CinemaSystem.sln
 
 ## 🚀 Live Demo
 
-Try it here: **[[keen-playfulness-production-7327.up.railway.app](https://keen-playfulness-production-7327.up.railway.app/admin)](#)** 
+Try it here: **[[keen-playfulness-production-7327.up.railway.app](https://keen-playfulness-production-7327.up.railway.app/admin)]** 
 
 **Admin login (/admin):**
 - Login: `admin`
