@@ -50,6 +50,8 @@ A full-stack cinema booking and management platform built with **Blazor Server**
 
 </div>
 
+---
+
 ## 🏗️ Architecture
 
 Three-layer solution with one-way dependency flow: UI → Service → Repository → Database. Database-first approach — the schema was designed and populated directly in PostgreSQL, then scaffolded into C# via EF Core.
@@ -102,8 +104,4 @@ dotnet run --project Cinema.Web
 
 Then open `https://localhost:xxxx/admin` and log in with the demo credentials above (or create your own admin via `/setup-admin` on first run).
 
----
 
-## 📄 License
-
-MIT — feel free to fork and build on it.
