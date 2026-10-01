@@ -74,9 +74,9 @@ CinemaSystem.sln
 
 ## 🚀 Live Demo
 
-Try it here: **[cinema-system.example.com](#)** *(link coming soon)*
+Try it here: **[[keen-playfulness-production-7327.up.railway.app](https://keen-playfulness-production-7327.up.railway.app/admin)]** 
 
-**Admin login:**
+**Admin login (/admin):**
 - Login: `admin`
 - Password: `ChangeMe123!`
 
