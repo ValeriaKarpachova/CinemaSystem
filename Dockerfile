@@ -9,13 +9,16 @@ RUN dotnet restore Cinema.Web/Cinema.Web.csproj
 
 COPY . .
 
-RUN dotnet publish Cinema.Web/Cinema.Web.csproj -c Release -o /app/publish --no-restore
+RUN dotnet publish Cinema.Web/Cinema.Web.csproj \
+    -c Release \
+    -o /app/publish \
+    --no-restore \
+    /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
 COPY --from=build /app/publish .
-RUN mkdir -p /app/keys
 
 EXPOSE 8080
 
