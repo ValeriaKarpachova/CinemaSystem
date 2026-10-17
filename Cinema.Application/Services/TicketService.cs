@@ -1,4 +1,5 @@
 ﻿
+using Cinema.Application.Models;
 using Cinema.Domain.Common;
 using Cinema.Domain.Entities;
 using Cinema.Domain.Exceptions;
@@ -8,9 +9,23 @@ namespace Cinema.Application.Services;
 
 public class TicketService : ITicketService
 {
+    private const int MaxSeatsPerBooking = 6;
     private readonly ITicketRepository _repo;
+    private readonly ISeatRepository _seats;
+    private readonly ISessionRepository _sessions;
+    private readonly ICustomerRepository _customers;
 
-    public TicketService(ITicketRepository repo) => _repo = repo;
+    public TicketService(
+        ITicketRepository repo,
+        ISeatRepository seats,
+        ISessionRepository sessions,
+        ICustomerRepository customers)
+    {
+        _repo = repo;
+        _seats = seats;
+        _sessions = sessions;
+        _customers = customers;
+    }
 
     public Task<List<Ticket>> SearchAsync(int? customerId, string? status) =>
         _repo.SearchAsync(customerId, status);
@@ -85,6 +100,72 @@ public class TicketService : ITicketService
         }
     }
 
+    public async Task<BookingResult> BookAsync(
+        int customerId,
+        int sessionId,
+        IReadOnlyCollection<int> seatIds)
+    {
+        var ids = seatIds.Distinct().ToList();
+
+        if (ids.Count == 0)
+            return BookingResult.Fail("Оберіть хоча б одне місце.");
+
+        if (ids.Count > MaxSeatsPerBooking)
+        {
+            return BookingResult.Fail(
+                $"Можна забронювати не більше {MaxSeatsPerBooking} місць за раз.");
+        }
+
+        if (await _customers.GetByIdAsync(customerId) is null)
+            return BookingResult.Fail("Клієнта не знайдено.");
+
+        var session = await _sessions.GetByIdAsync(sessionId);
+
+        if (session is null)
+            return BookingResult.Fail("Сеанс не знайдено.");
+
+        if (session.SessionDate.ToDateTime(session.SessionTime) <= DateTime.Now)
+        {
+            return BookingResult.Fail(
+                "Сеанс уже розпочався або минув.");
+        }
+
+        var hallSeats = await _seats.GetByHallAsync(session.HallId);
+
+        var chosen = hallSeats
+            .Where(s => ids.Contains(s.SeatId))
+            .ToList();
+
+        if (chosen.Count != ids.Count)
+        {
+            return BookingResult.Fail(
+                "Деякі місця не належать залу цього сеансу.");
+        }
+
+        var tickets = chosen.Select(s => new Ticket
+        {
+            SessionId = sessionId,
+            SeatId = s.SeatId,
+            CustomerId = customerId,
+            Price = s.Price,
+            Status = TicketStatus.Booked
+        }).ToList();
+
+        try
+        {
+            await _repo.AddRangeAsync(tickets);
+        }
+        catch (SeatAlreadyTakenException)
+        {
+            return BookingResult.Fail(
+                "Одне або кілька обраних місць щойно забронював інший глядач. Оновіть схему залу.");
+        }
+
+        return BookingResult.Ok(
+            tickets.Select(t => t.TicketId).ToList(),
+            tickets.Sum(t => t.Price));
+    }
+
     public async Task<OperationResult> ChangeStatusAsync(
         int ticketId,
         string newStatus)
@@ -99,12 +180,14 @@ public class TicketService : ITicketService
 
         ticket.Status = newStatus;
 
-        await _repo.UpdateAsync(ticket);
-
-        try { await _repo.UpdateAsync(ticket); }
+        try
+        {
+            await _repo.UpdateAsync(ticket);
+        }
         catch (SeatAlreadyTakenException)
         {
-            return OperationResult.Fail("Неможливо відновити квиток: місце вже зайняте іншим.");
+            return OperationResult.Fail(
+                "Неможливо відновити квиток: місце вже зайняте іншим.");
         }
 
         return OperationResult.Ok();

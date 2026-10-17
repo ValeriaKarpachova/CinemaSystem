@@ -1,5 +1,7 @@
-﻿using Cinema.Domain.Common;
+﻿using Cinema.Application.Models;
+using Cinema.Domain.Common;
 using Cinema.Domain.Entities;
+using Cinema.Application.Models;
 
 namespace Cinema.Application.Services;
 
@@ -9,4 +11,5 @@ public interface ITicketService
     Task<OperationResult> SaveAsync(Ticket ticket);  
     Task<OperationResult> ChangeStatusAsync(int ticketId, string newStatus);
     Task<OperationResult> DeleteAsync(int id);
+    Task<BookingResult> BookAsync(int customerId, int sessionId, IReadOnlyCollection<int> seatIds);
 }

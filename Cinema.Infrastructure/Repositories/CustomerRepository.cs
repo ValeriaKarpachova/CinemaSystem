@@ -2,6 +2,8 @@
 using Cinema.Domain.Interfaces;
 using Cinema.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Cinema.Domain.Exceptions;
+using Npgsql;
 
 namespace Cinema.Infrastructure.Repositories;
 
@@ -31,4 +33,31 @@ public class CustomerRepository : Repository<Customer>, ICustomerRepository
         await using var db = await Factory.CreateDbContextAsync();
         return await db.Customers.AnyAsync(c => c.Email == email && c.CustomerId != (excludeId ?? 0));
     }
+
+    public async Task<Customer?> GetByEmailAsync(string email)
+    {
+        await using var db = await Factory.CreateDbContextAsync();
+        return await db.Customers.AsNoTracking().FirstOrDefaultAsync(c => c.Email == email);
+    }
+
+    public override async Task AddAsync(Customer entity)
+    {
+        try { await base.AddAsync(entity); }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            throw new DuplicateEmailException(ex);
+        }
+    }
+
+    public override async Task UpdateAsync(Customer entity)
+    {
+        try { await base.UpdateAsync(entity); }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            throw new DuplicateEmailException(ex);
+        }
+    }
+
+    private static bool IsUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 }

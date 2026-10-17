@@ -55,4 +55,20 @@ public class TicketRepository : Repository<Ticket>, ITicketRepository
 
     private static bool IsUniqueViolation(DbUpdateException ex) =>
         ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
+
+    public async Task AddRangeAsync(IReadOnlyCollection<Ticket> tickets)
+    {
+        await using var db = await Factory.CreateDbContextAsync();
+        await using var tx = await db.Database.BeginTransactionAsync();
+        db.Tickets.AddRange(tickets);
+        try
+        {
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            throw new SeatAlreadyTakenException(ex);   
+        }
+    }
 }

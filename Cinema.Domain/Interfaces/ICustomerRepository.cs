@@ -5,4 +5,6 @@ public interface ICustomerRepository : IRepository<Customer>
 {
     Task<List<Customer>> SearchAsync(string? name);
     Task<bool> EmailExistsAsync(string email, int? excludeId = null);
+
+    Task<Customer?> GetByEmailAsync(string email);
 }
