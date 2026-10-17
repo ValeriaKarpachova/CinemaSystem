@@ -55,6 +55,8 @@ public partial class CinemaDbContext : DbContext
             entity.Property(e => e.Phone)
                 .HasMaxLength(20)
                 .HasColumnName("phone");
+            entity.Property(e => e.PasswordHash)
+                .HasColumnName("password_hash");
         });
 
         modelBuilder.Entity<Genre>(entity =>
@@ -222,6 +224,9 @@ public partial class CinemaDbContext : DbContext
                 .HasForeignKey(d => d.SessionId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_tickets_session");
+            entity.HasIndex(e => new { e.SessionId, e.SeatId }, "uq_tickets_session_seat")
+               .IsUnique()
+               .HasFilter("status <> 'Скасовано'");
         });
 
         modelBuilder.Entity<AppUser>(entity =>

@@ -21,7 +21,7 @@ public class CustomerService : ICustomerService
         customer.FirstName = (customer.FirstName ?? "").Trim();
         customer.LastName = (customer.LastName ?? "").Trim();
         customer.Phone = (customer.Phone ?? "").Trim();
-        customer.Email = (customer.Email ?? "").Trim();
+        customer.Email = (customer.Email ?? "").Trim().ToLowerInvariant();
 
         if (customer.FirstName.Length == 0) return OperationResult.Fail("Ім'я не може бути порожнім.");
         if (customer.LastName.Length == 0) return OperationResult.Fail("Прізвище не може бути порожнім.");
@@ -35,9 +35,21 @@ public class CustomerService : ICustomerService
         if (await _repo.EmailExistsAsync(customer.Email, excludeId))
             return OperationResult.Fail("Клієнт з такою поштою вже існує.");
 
-        if (customer.CustomerId == 0) await _repo.AddAsync(customer);
-        else await _repo.UpdateAsync(customer);
+        if (customer.CustomerId == 0)
+        {
+            await _repo.AddAsync(customer);
+            return OperationResult.Ok();
+        }
 
+        var existing = await _repo.GetByIdAsync(customer.CustomerId);
+        if (existing is null) return OperationResult.Fail("Клієнта не знайдено.");
+
+        existing.FirstName = customer.FirstName;
+        existing.LastName = customer.LastName;
+        existing.Phone = customer.Phone;
+        existing.Email = customer.Email;
+
+        await _repo.UpdateAsync(existing);
         return OperationResult.Ok();
     }
 

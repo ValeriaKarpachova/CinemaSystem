@@ -2,6 +2,9 @@
 using Cinema.Domain.Interfaces;
 using Cinema.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Cinema.Domain.Common;
+using Cinema.Domain.Exceptions;
+using Npgsql;
 
 namespace Cinema.Infrastructure.Repositories;
 
@@ -27,6 +30,29 @@ public class TicketRepository : Repository<Ticket>, ITicketRepository
     {
         await using var db = await Factory.CreateDbContextAsync();
         return await db.Tickets.AnyAsync(t =>
-            t.SessionId == sessionId && t.SeatId == seatId && t.TicketId != (excludeId ?? 0));
+            t.SessionId == sessionId && t.SeatId == seatId
+            && t.Status != TicketStatus.Cancelled
+            && t.TicketId != (excludeId ?? 0));
     }
+
+    public override async Task AddAsync(Ticket entity)
+    {
+        try { await base.AddAsync(entity); }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            throw new SeatAlreadyTakenException(ex);
+        }
+    }
+
+    public override async Task UpdateAsync(Ticket entity)
+    {
+        try { await base.UpdateAsync(entity); }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            throw new SeatAlreadyTakenException(ex);
+        }
+    }
+
+    private static bool IsUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 }
