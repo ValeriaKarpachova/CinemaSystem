@@ -2,9 +2,8 @@
 using Cinema.Domain.Entities;
 using Cinema.Domain.Exceptions;
 using Cinema.Domain.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
-namespace Cinema.Web.Services;
+namespace Cinema.Application.Services;
 
 public class PaymentService : IPaymentService
 {
@@ -44,7 +43,7 @@ public class PaymentService : IPaymentService
         {
             await _repo.AddAsync(payment);
         }
-        catch (DbUpdateException)
+        catch (DuplicatePaymentException)
         {
             return OperationResult.Fail("Оплата для цього квитка вже зареєстрована.");
         }

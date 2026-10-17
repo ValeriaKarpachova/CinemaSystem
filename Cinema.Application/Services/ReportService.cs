@@ -1,7 +1,7 @@
 ﻿using Cinema.Domain.Interfaces;
 using Cinema.Domain.Reports;
 
-namespace Cinema.Web.Services;
+namespace Cinema.Application.Services;
 
 public class ReportService : IReportService
 {

@@ -3,7 +3,7 @@ using Cinema.Domain.Entities;
 using Cinema.Domain.Exceptions;
 using Cinema.Domain.Interfaces;
 
-namespace Cinema.Web.Services;
+namespace Cinema.Application.Services;
 
 public class MovieService : IMovieService
 {

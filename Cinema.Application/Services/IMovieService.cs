@@ -1,7 +1,7 @@
 ﻿using Cinema.Domain.Common;
 using Cinema.Domain.Entities;
 
-namespace Cinema.Web.Services;
+namespace Cinema.Application.Services;
 
 public interface IMovieService
 {

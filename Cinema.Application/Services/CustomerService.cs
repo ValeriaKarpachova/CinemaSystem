@@ -4,7 +4,7 @@ using Cinema.Domain.Exceptions;
 using Cinema.Domain.Interfaces;
 using System.Text.RegularExpressions;
 
-namespace Cinema.Web.Services;
+namespace Cinema.Application.Services;
 
 public class CustomerService : ICustomerService
 {

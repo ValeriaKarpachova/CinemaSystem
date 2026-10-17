@@ -2,9 +2,8 @@
 using Cinema.Domain.Entities;
 using Cinema.Domain.Exceptions;
 using Cinema.Domain.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
-namespace Cinema.Web.Services;
+namespace Cinema.Application.Services;
 
 public class SessionService : ISessionService
 {
@@ -32,7 +31,7 @@ public class SessionService : ISessionService
             if (session.SessionId == 0) await _repo.AddAsync(session);
             else await _repo.UpdateAsync(session);
         }
-        catch (DbUpdateException)
+        catch (ScheduleConflictException)
         {
             return OperationResult.Fail("Конфлікт розкладу: сеанс у цьому залі на цей час щойно з'явився.");
         }

@@ -1,4 +1,4 @@
-﻿using Cinema.Web.Services;
+﻿using Cinema.Application.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;

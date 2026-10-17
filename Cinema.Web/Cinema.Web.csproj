@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Cinema.Infrastructure\Cinema.Infrastructure.csproj" />
     <ProjectReference Include="..\Cinema.Domain\Cinema.Domain.csproj" />
+    <ProjectReference Include="..\Cinema.Application\Cinema.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -2,6 +2,7 @@
 using Cinema.Domain.Interfaces;
 using Cinema.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Cinema.Infrastructure.Repositories;
 
@@ -23,14 +24,14 @@ public class Repository<T> : IRepository<T> where T : class
         return await db.Set<T>().FindAsync(id);
     }
 
-    public async Task AddAsync(T entity)
+    public virtual async Task AddAsync(T entity)
     {
         await using var db = await Factory.CreateDbContextAsync();
         db.Set<T>().Add(entity);
         await db.SaveChangesAsync();
     }
 
-    public async Task UpdateAsync(T entity)
+    public virtual async Task UpdateAsync(T entity)
     {
         await using var db = await Factory.CreateDbContextAsync();
         db.Set<T>().Update(entity);
@@ -48,7 +49,9 @@ public class Repository<T> : IRepository<T> where T : class
         {
             await db.SaveChangesAsync();
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) 
+            when (ex.InnerException is PostgresException 
+                { SqlState: PostgresErrorCodes.ForeignKeyViolation })
         {
             throw new RelatedRecordsExistException();
         }

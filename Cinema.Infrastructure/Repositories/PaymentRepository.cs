@@ -2,6 +2,8 @@
 using Cinema.Domain.Interfaces;
 using Cinema.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Cinema.Domain.Exceptions;
+using Npgsql;
 
 namespace Cinema.Infrastructure.Repositories;
 
@@ -26,5 +28,15 @@ public class PaymentRepository : Repository<Payment>, IPaymentRepository
             query = query.Where(p => p.PaymentMethod == method);
 
         return await query.OrderByDescending(p => p.PaymentDate).ToListAsync();
+    }
+
+    public override async Task AddAsync(Payment entity)
+    {
+        try { await base.AddAsync(entity); }
+        catch (DbUpdateException ex) when
+            (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            throw new DuplicatePaymentException(ex);
+        }
     }
 }

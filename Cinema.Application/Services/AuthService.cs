@@ -2,7 +2,7 @@
 using Cinema.Domain.Interfaces;
 using Microsoft.AspNetCore.Identity;
 
-namespace Cinema.Web.Services;
+namespace Cinema.Application.Services;
 
 public class AuthService : IAuthService
 {
