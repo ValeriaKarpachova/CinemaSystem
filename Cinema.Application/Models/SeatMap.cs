@@ -6,6 +6,7 @@ public static class SeatState
     public const string Free = "free";
     public const string Booked = "booked";
     public const string Sold = "sold";
+    public const string Locked = "locked";
 }
 
 public record SeatMapItem(int SeatId, int Row, int Number, decimal Price, string Status);

@@ -5,6 +5,8 @@ using Cinema.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
+using Cinema.Api.Hubs;
+using Cinema.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,14 +42,31 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             RoleClaimType = "role",
             ClockSkew = TimeSpan.FromMinutes(1)
         };
+
+        o.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                var token = ctx.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(token) && ctx.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                    ctx.Token = token;
+                return Task.CompletedTask;
+            }
+        };
     });
 builder.Services.AddAuthorization();
 
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
+builder.Services.AddHostedService<SeatLockCleanupService>();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+
+if (app.Environment.IsDevelopment()) app.UseStaticFiles();
+
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
@@ -58,5 +77,9 @@ app.MapScalarApiReference();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+
+app.MapHub<SeatHub>("/hubs/seats");
+
 
 app.Run();

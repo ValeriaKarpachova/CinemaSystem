@@ -11,3 +11,6 @@ public record SessionDto(int Id, int MovieId, string MovieTitle, int HallId,
 
 public record BookingRequest(int SessionId, List<int> SeatIds);
 public record BookingResponse(IReadOnlyList<int> TicketIds, decimal TotalPrice);
+
+public record SeatEvent(int SessionId, IReadOnlyCollection<int> SeatIds, DateTimeOffset? ExpiresAt);
+public record LockResponse(bool Success, string? Error, DateTimeOffset? ExpiresAt);

@@ -14,17 +14,16 @@ public class TicketService : ITicketService
     private readonly ISeatRepository _seats;
     private readonly ISessionRepository _sessions;
     private readonly ICustomerRepository _customers;
+    private readonly ISeatLockService _locks;
 
-    public TicketService(
-        ITicketRepository repo,
-        ISeatRepository seats,
-        ISessionRepository sessions,
-        ICustomerRepository customers)
+    public TicketService(ITicketRepository repo, ISeatRepository seats,
+    ISessionRepository sessions, ICustomerRepository customers, ISeatLockService locks)
     {
-        _repo = repo;
-        _seats = seats;
-        _sessions = sessions;
-        _customers = customers;
+        _repo = repo; 
+        _seats = seats; 
+        _sessions = sessions; 
+        _customers = customers; 
+        _locks = locks;
     }
 
     public Task<List<Ticket>> SearchAsync(int? customerId, string? status) =>
@@ -142,6 +141,9 @@ public class TicketService : ITicketService
                 "Деякі місця не належать залу цього сеансу.");
         }
 
+        if (_locks.IsLockedByOther(sessionId, ids, customerId))
+            return BookingResult.Fail("Деякі місця тимчасово утримує інший глядач.", conflict: true);
+
         var tickets = chosen.Select(s => new Ticket
         {
             SessionId = sessionId,
@@ -157,6 +159,7 @@ public class TicketService : ITicketService
         }
         catch (SeatAlreadyTakenException)
         {
+            _locks.Release(sessionId, ids, customerId);
             return BookingResult.Fail(
                 "Одне або кілька обраних місць щойно забронював інший глядач. Оновіть схему залу.",
                 conflict: true);

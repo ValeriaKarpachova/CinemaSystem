@@ -1,0 +1,41 @@
+﻿<!doctype html>
+<meta charset="utf-8">
+<title>Seat hub test</title>
+<body style="font-family:sans-serif;max-width:720px;margin:2rem auto">
+    <h3>SeatHub test</h3>
+    <p>JWT: <input id="token" size="70"></p>
+    <p>
+        SessionId: <input id="session" value="1" size="4">
+        SeatIds: <input id="seats" value="1,2" size="12">
+    </p>
+    <button id="connect">Connect + Join</button>
+    <button id="lock">Lock</button>
+    <button id="release">Release</button>
+<pre id="log" style="background:#eee;padding:8px;height:260px;overflow:auto"></pre>
+    <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+    <script>
+const $ = id => document.getElementById(id);
+const log = m => { $('log').textContent += new Date().toLocaleTimeString() + '  ' + m + '\n'; };
+const sid = () => Number($('session').value);
+const ids = () => $('seats').value.split(',').map(Number);
+let conn;
+
+async function call(name, ...args) {
+  try { return await conn.invoke(name, ...args); }
+  catch (e) { log('ERROR ' + name + ': ' + e.message); }
+}
+
+$('connect').onclick = async () => {
+  conn = new signalR.HubConnectionBuilder()
+    .withUrl('/hubs/seats', { accessTokenFactory: () => $('token').value })
+    .withAutomaticReconnect().build();
+  ['SeatLocked', 'SeatReleased', 'SeatBooked'].forEach(e =>
+    conn.on(e, p => log(e + ' ' + JSON.stringify(p))));
+  await conn.start();
+  await call('JoinSession', sid());
+  log('connected, joined session ' + sid());
+};
+$('lock').onclick = async () => log('Lock -> ' + JSON.stringify(await call('LockSeats', sid(), ids())));
+$('release').onclick = async () => { await call('ReleaseSeats', sid(), ids()); log('Release sent'); };
+    </script>
+</body>

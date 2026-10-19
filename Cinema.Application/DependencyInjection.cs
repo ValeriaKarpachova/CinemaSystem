@@ -19,6 +19,7 @@ public static class DependencyInjection
         s.AddScoped<IAuthService, AuthService>();
         s.AddScoped<ICustomerAuthService, CustomerAuthService>();
         s.AddScoped<ISeatMapService, SeatMapService>();
+        s.AddSingleton<ISeatLockService>(_ => new InMemorySeatLockService(TimeProvider.System, TimeSpan.FromMinutes(5)));
         return s;
     }
 }
