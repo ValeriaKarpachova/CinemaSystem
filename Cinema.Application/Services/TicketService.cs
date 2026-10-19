@@ -210,4 +210,25 @@ public class TicketService : ITicketService
                 "Неможливо видалити квиток: на нього вже є платіж.");
         }
     }
+
+    public async Task<CancelResult> CancelOwnAsync(int customerId, int ticketId)
+    {
+        var ticket = await _repo.GetByIdAsync(ticketId);
+        
+        if (ticket is null || ticket.CustomerId != customerId)
+            return CancelResult.Fail("Квиток не знайдено.", notFound: true);
+
+        if (ticket.Status == TicketStatus.Cancelled) return CancelResult.Fail("Квиток уже скасовано.");
+        if (ticket.Status == TicketStatus.Paid)
+            return CancelResult.Fail("Оплачений квиток скасувати не можна. Зверніться до адміністратора.");
+
+        var session = await _sessions.GetByIdAsync(ticket.SessionId);
+        if (session is null || session.SessionDate.ToDateTime(session.SessionTime) <= DateTime.Now)
+            return CancelResult.Fail("Сеанс уже розпочався або минув.");
+
+        ticket.Status = TicketStatus.Cancelled;
+        await _repo.UpdateAsync(ticket);
+
+        return CancelResult.Ok(ticket.SessionId, ticket.SeatId);
+    }
 }

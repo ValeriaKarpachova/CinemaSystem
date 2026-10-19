@@ -3,8 +3,11 @@
 public record LoginRequest(string Email, string Password);
 public record AuthResponse(string Token, DateTime ExpiresAtUtc, string FullName);
 
-public record MovieDto(int Id, string Title, string Genre, int DurationMinutes,
+public record MovieDto(int Id, string Title, int GenreId, string Genre, int DurationMinutes,
     string AgeRating, string? Description, DateOnly? ReleaseDate);
+
+public record TicketDto(int Id, int SessionId, string MovieTitle, DateOnly Date, TimeOnly Time,
+    int Row, int Seat, decimal Price, string Status, string StatusLabel, bool CanCancel);
 
 public record SessionDto(int Id, int MovieId, string MovieTitle, int HallId,
     string HallName, string ScreenType, DateOnly Date, TimeOnly Time);

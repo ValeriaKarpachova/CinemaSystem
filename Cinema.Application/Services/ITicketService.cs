@@ -11,4 +11,5 @@ public interface ITicketService
     Task<OperationResult> ChangeStatusAsync(int ticketId, string newStatus);
     Task<OperationResult> DeleteAsync(int id);
     Task<BookingResult> BookAsync(int customerId, int sessionId, IReadOnlyCollection<int> seatIds);
+    Task<CancelResult> CancelOwnAsync(int customerId, int ticketId);
 }

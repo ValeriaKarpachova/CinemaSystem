@@ -13,7 +13,7 @@ public class MoviesController(IMovieService movies) : ControllerBase
     {
         var list = await movies.SearchAsync(title, genreId);
         return list.Select(m => new MovieDto(
-            m.MovieId, m.Title, m.Genre?.GenreName ?? "", m.Duration,
-            m.AgeRating, m.Description, m.ReleaseDate)).ToList();
+         m.MovieId, m.Title, m.GenreId, m.Genre?.GenreName ?? "", m.Duration,
+         m.AgeRating, m.Description, m.ReleaseDate)).ToList();
     }
 }

@@ -28,4 +28,12 @@ POST {{host}}/api/bookings
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
+### Мої квитки
+GET {{host}}/api/me/tickets
+Authorization: Bearer {{token}}
+
+### Скасувати квиток (підстав id)
+POST {{host}}/api/me/tickets/1/cancel
+Authorization: Bearer {{token}}
+
 { "sessionId": 1, "seatIds": [1, 2] }
