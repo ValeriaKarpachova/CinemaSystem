@@ -18,6 +18,7 @@ public static class DependencyInjection
         s.AddScoped<IReportService, ReportService>();
         s.AddScoped<IAuthService, AuthService>();
         s.AddScoped<ICustomerAuthService, CustomerAuthService>();
+        s.AddScoped<ISeatMapService, SeatMapService>();
         return s;
     }
 }

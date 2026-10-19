@@ -1,0 +1,31 @@
+@host = http://localhost:5081
+
+### Регистрація
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{ "firstName": "Тест", "lastName": "Клієнт", "phone": "", "email": "test@example.com", "password": "Passw0rd123" }
+
+### Вхід
+# @name login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "test@example.com", "password": "Passw0rd123" }
+
+### Афіша
+GET {{host}}/api/movies
+
+### Сеанси
+GET {{host}}/api/sessions
+
+### Карта місць (підстав id сеансу)
+GET {{host}}/api/sessions/1/seats
+
+### Бронювання
+@token = {{login.response.body.$.token}}
+POST {{host}}/api/bookings
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "sessionId": 1, "seatIds": [1, 2] }

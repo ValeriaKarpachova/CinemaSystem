@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Cinema.Domain.Common;
 using Cinema.Domain.Exceptions;
 using Npgsql;
+using Cinema.Domain.Common;
 
 namespace Cinema.Infrastructure.Repositories;
 
@@ -70,5 +71,13 @@ public class TicketRepository : Repository<Ticket>, ITicketRepository
         {
             throw new SeatAlreadyTakenException(ex);   
         }
+    }
+
+    public async Task<Dictionary<int, string>> GetActiveSeatStatusesAsync(int sessionId)
+    {
+        await using var db = await Factory.CreateDbContextAsync();
+        return await db.Tickets.AsNoTracking()
+            .Where(t => t.SessionId == sessionId && t.Status != TicketStatus.Cancelled)
+            .ToDictionaryAsync(t => t.SeatId, t => t.Status);
     }
 }

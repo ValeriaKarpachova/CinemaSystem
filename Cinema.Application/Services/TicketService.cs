@@ -158,7 +158,8 @@ public class TicketService : ITicketService
         catch (SeatAlreadyTakenException)
         {
             return BookingResult.Fail(
-                "Одне або кілька обраних місць щойно забронював інший глядач. Оновіть схему залу.");
+                "Одне або кілька обраних місць щойно забронював інший глядач. Оновіть схему залу.",
+                conflict: true);
         }
 
         return BookingResult.Ok(

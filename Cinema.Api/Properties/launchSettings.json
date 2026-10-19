@@ -1,0 +1,13 @@
+﻿{
+  "profiles": {
+    "Local": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "launchUrl": "scalar/v1",
+      "applicationUrl": "http://localhost:5081",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}

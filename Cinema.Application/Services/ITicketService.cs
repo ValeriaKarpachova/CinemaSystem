@@ -1,7 +1,6 @@
 ﻿using Cinema.Application.Models;
 using Cinema.Domain.Common;
 using Cinema.Domain.Entities;
-using Cinema.Application.Models;
 
 namespace Cinema.Application.Services;
 
