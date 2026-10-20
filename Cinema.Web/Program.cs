@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using MudBlazor.Services;
+using Cinema.Web.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,14 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddRazorPages();
 builder.Services.AddInfrastructure(builder.Configuration.GetConnectionString("CinemaDb")!);
 builder.Services.AddApplication();
+builder.Services.AddScoped<CustomerSession>();
+builder.Services.AddHttpClient<CinemaApiClient>(c =>
+{
+    var baseUrl = builder.Configuration["Api:BaseUrl"]
+        ?? throw new InvalidOperationException("Не задано Api:BaseUrl.");
+    c.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+    c.Timeout = TimeSpan.FromSeconds(15);
+});
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
