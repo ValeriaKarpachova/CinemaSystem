@@ -1,8 +1,177 @@
-﻿@page "/"
+@page "/"
+@using Cinema.Web.Client
+@inject CinemaApiClient Api
 
-<PageTitle>Cinema</PageTitle>
+<PageTitle>Афіша — Кінотеатр</PageTitle>
 
-<div style="text-align:center; margin-top:80px">
-    <h1>Кінотеатр</h1>
-    <p>Клієнтська частина в розробці.</p>
-</div>
+<MudText Typo="Typo.h4" Class="cinema-page-title mb-4">Афіша</MudText>
+
+@if (_loading)
+{
+    <div class="cinema-dates mb-6">
+        @for (var i = 0; i < 7; i++)
+        {
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="64px" Height="84px" Class="rounded-lg flex-none" />
+        }
+    </div>
+    <div class="cinema-grid">
+        @for (var i = 0; i < 8; i++)
+        {
+            <div>
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="260px" Class="rounded-lg mb-2" />
+                <MudSkeleton Width="80%" />
+                <MudSkeleton Width="50%" />
+            </div>
+        }
+    </div>
+}
+else if (_error is not null || _sessionsError is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        @(_error ?? "Не вдалося завантажити сеанси.")
+        <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="ml-3" OnClick="LoadAsync">
+            Спробувати ще раз
+        </MudButton>
+    </MudAlert>
+}
+else if (_dates.Count == 0)
+{
+    <div class="cinema-empty">
+        <MudIcon Icon="@Icons.Material.Filled.MovieFilter" Size="Size.Large" />
+        <MudText Typo="Typo.h6" Class="mt-2">Найближчих сеансів поки немає</MudText>
+        <MudText Typo="Typo.body2">Зазирніть сюди пізніше — розклад оновлюється.</MudText>
+    </div>
+}
+else
+{
+    <div class="cinema-dates mb-4" role="tablist" aria-label="Дата сеансів">
+        @foreach (var d in _dates)
+        {
+            var date = d;
+            var active = date == _selectedDate;
+            <button type="button" role="tab" aria-selected="@(active ? "true" : "false")"
+                    class="cinema-date @(active ? "cinema-date--active" : "")"
+                    @onclick="() => SelectDate(date)">
+                <span class="cinema-date-dow">@DowLabel(date)</span>
+                <span class="cinema-date-num">@date.Day</span>
+                <span class="cinema-date-month">@MonthShort[date.Month - 1]</span>
+            </button>
+        }
+    </div>
+
+    <MudText Typo="Typo.h6" Class="cinema-day-label mb-4">@KyivTime.DayLabel(_selectedDate)</MudText>
+
+    var movies = MoviesOfDay.ToList();
+    if (movies.Count == 0)
+    {
+        <div class="cinema-empty">
+            <MudIcon Icon="@Icons.Material.Filled.MovieFilter" Size="Size.Large" />
+            <MudText Typo="Typo.h6" Class="mt-2">На цей день сеансів немає</MudText>
+            <MudText Typo="Typo.body2">Оберіть іншу дату.</MudText>
+        </div>
+    }
+    else
+    {
+        <div class="cinema-grid">
+            @foreach (var (m, sessions) in movies)
+            {
+                <div class="cinema-card">
+                    <a href="@($"/movie/{m.Id}")" class="cinema-card-poster">
+                        <MoviePoster Id="m.Id" Title="@m.Title" Url="@m.PosterUrl" />
+                        <span class="cinema-age">@m.AgeRating</span>
+                    </a>
+                    <div>
+                        <a href="@($"/movie/{m.Id}")" class="cinema-card-title">@m.Title</a>
+                        <div class="cinema-card-meta">@m.Genre · @UiFormat.Duration(m.DurationMinutes)</div>
+                    </div>
+                    <div class="cinema-times">
+                        @foreach (var s in sessions)
+                        {
+                            <a class="cinema-time" href="@($"/session/{s.Id}")"
+                               title="@UiFormat.Hall(s.HallName, s.ScreenType)">
+                                @UiFormat.Time(s.Time)
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private static readonly string[] DowShort = ["Нд", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+    private static readonly string[] MonthShort =
+        ["січ", "лют", "бер", "кві", "тра", "чер", "лип", "сер", "вер", "жов", "лис", "гру"];
+
+    private List<MovieDto> _movies = new();
+    private Dictionary<DateOnly, List<SessionDto>> _sessionsByDate = new();
+    private List<DateOnly> _dates = new();
+    private DateOnly _selectedDate;
+    private bool _loading = true;
+    private string? _error;
+    private string? _sessionsError;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        _sessionsError = null;
+
+        var moviesTask = Api.GetMoviesAsync();
+        var sessionsTask = Api.GetSessionsAsync();
+        var movies = await moviesTask;
+        var sessions = await sessionsTask;
+
+        if (!movies.Success)
+        {
+            _error = movies.Error ?? "Не вдалося завантажити афішу.";
+            _loading = false;
+            return;
+        }
+        if (!sessions.Success)
+        {
+            _sessionsError = sessions.Error ?? "error";
+            _loading = false;
+            return;
+        }
+
+        _movies = movies.Value ?? new List<MovieDto>();
+
+        _sessionsByDate = (sessions.Value ?? new List<SessionDto>())
+            .Where(s => KyivTime.IsUpcoming(s.Date, s.Time))
+            .GroupBy(s => s.Date)
+            .ToDictionary(g => g.Key, g => g.OrderBy(s => s.Time).ToList());
+
+        _dates = _sessionsByDate.Keys.OrderBy(d => d).ToList();
+
+        // зберігаємо вибір при повторному завантаженні, інакше — найближча дата (сьогодні, якщо є сеанси)
+        if (!_sessionsByDate.ContainsKey(_selectedDate))
+            _selectedDate = _dates.Count > 0 ? _dates[0] : KyivTime.Today;
+
+        _loading = false;
+    }
+
+    private void SelectDate(DateOnly date) => _selectedDate = date;
+
+    private static string DowLabel(DateOnly d) =>
+        d == KyivTime.Today ? "Сьогодні"
+        : d == KyivTime.Today.AddDays(1) ? "Завтра"
+        : DowShort[(int)d.DayOfWeek];
+
+    private IEnumerable<(MovieDto Movie, List<SessionDto> Sessions)> MoviesOfDay
+    {
+        get
+        {
+            if (!_sessionsByDate.TryGetValue(_selectedDate, out var daySessions))
+                yield break;
+
+            var byMovie = daySessions.GroupBy(s => s.MovieId).ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var m in _movies.Where(m => byMovie.ContainsKey(m.Id)).OrderBy(m => m.Title))
+                yield return (m, byMovie[m.Id]);
+        }
+    }
+}

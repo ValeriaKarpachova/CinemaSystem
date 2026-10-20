@@ -19,12 +19,12 @@ public class BookingsController(ITicketService tickets, IHubContext<SeatHub> hub
         var customerId = int.Parse(User.FindFirstValue("sub")!);
         var result = await tickets.BookAsync(customerId, request.SessionId, request.SeatIds);
 
-        await hub.Clients.Group(SeatHub.Group(request.SessionId))
-            .SendAsync("SeatBooked", new SeatEvent(request.SessionId, request.SeatIds.Distinct().ToList(), null));
-
         if (!result.Success)
             return Problem(detail: result.Error,
                 statusCode: result.Conflict ? StatusCodes.Status409Conflict : StatusCodes.Status400BadRequest);
+
+        await hub.Clients.Group(SeatHub.Group(request.SessionId))
+            .SendAsync("SeatBooked", new SeatEvent(request.SessionId, request.SeatIds.Distinct().ToList(), null));
 
         return new BookingResponse(result.TicketIds!, result.TotalPrice);
     }

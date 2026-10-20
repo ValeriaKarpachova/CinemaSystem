@@ -109,7 +109,9 @@ public partial class CinemaDbContext : DbContext
             entity.Property(e => e.Title)
                 .HasMaxLength(255)
                 .HasColumnName("title");
-
+            entity.Property(e => e.PosterUrl)
+                .HasMaxLength(500)
+                .HasColumnName("poster_url");
             entity.HasOne(d => d.Genre).WithMany(p => p.Movies)
                 .HasForeignKey(d => d.GenreId)
                 .OnDelete(DeleteBehavior.Restrict)

@@ -46,6 +46,18 @@
                           Variant="Variant.Outlined" Lines="3" />
         </MudItem>
         <MudItem xs="12">
+        <MudTextField @bind-Value="_editing.PosterUrl" Label="Посилання на постер"
+                      Variant="Variant.Outlined" MaxLength="500" Immediate="true"
+                      HelperText="https://… (необов'язково)" />
+        </MudItem>
+            @if (!string.IsNullOrWhiteSpace(_editing.PosterUrl))
+            {
+                <MudItem xs="12">
+                    <img src="@_editing.PosterUrl" alt="Постер" referrerpolicy="no-referrer"
+                         style="max-height:160px; border-radius:8px" />
+                </MudItem>
+            }
+        <MudItem xs="12">
             <MudStack Row="true">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Зберегти</MudButton>
                 @if (_editing.MovieId != 0)
@@ -75,6 +87,7 @@
 
 <MudTable Items="_movies" Hover="true" Dense="true">
     <HeaderContent>
+        <MudTh></MudTh>
         <MudTh><MudTableSortLabel SortBy="new Func<Movie, object>(x => x.MovieId)">ID</MudTableSortLabel></MudTh>
         <MudTh><MudTableSortLabel SortBy="new Func<Movie, object>(x => x.Title ?? string.Empty)">Назва</MudTableSortLabel></MudTh>
         <MudTh><MudTableSortLabel SortBy="new Func<Movie, object>(x => x.Genre?.GenreName ?? string.Empty)">Жанр</MudTableSortLabel></MudTh>
@@ -84,6 +97,13 @@
         <MudTh></MudTh>
     </HeaderContent>
     <RowTemplate>
+        <MudTd>
+            @if (!string.IsNullOrWhiteSpace(context.PosterUrl))
+            {
+                <img src="@context.PosterUrl" alt="" referrerpolicy="no-referrer"
+                     style="height:48px; border-radius:4px" />
+            }
+        </MudTd>
         <MudTd>@context.MovieId</MudTd>
         <MudTd>@context.Title</MudTd>
         <MudTd>@context.Genre?.GenreName</MudTd>
@@ -135,7 +155,8 @@
         Duration = m.Duration,
         AgeRating = m.AgeRating,
         ReleaseDate = m.ReleaseDate,
-        Description = m.Description
+        Description = m.Description,
+        PosterUrl = m.PosterUrl
     };
 
     private void ResetForm() => _editing = NewMovie();

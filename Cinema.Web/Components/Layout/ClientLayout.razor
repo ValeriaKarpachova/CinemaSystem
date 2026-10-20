@@ -1,0 +1,87 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@using Cinema.Web.Client
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject CustomerSession Session
+
+<MudThemeProvider Theme="AppTheme.Theme" @bind-IsDarkMode="_isDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <a href="/" class="cinema-brand">
+            <MudIcon Icon="@Icons.Material.Filled.Theaters" Size="Size.Large" />
+            <span>Кінотеатр</span>
+        </a>
+
+        <MudButton Href="/" Color="Color.Inherit" Class="ml-4 cinema-hide-xs"
+                   StartIcon="@Icons.Material.Filled.Movie">Афіша</MudButton>
+
+        <MudSpacer />
+
+        <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                       Color="Color.Inherit" OnClick="ToggleThemeAsync"
+                       Title="@(_isDarkMode ? "Світла тема" : "Темна тема")" />
+
+        @if (Session.IsAuthenticated)
+        {
+            <MudButton Href="/my-tickets" Color="Color.Inherit"
+                       StartIcon="@Icons.Material.Filled.ConfirmationNumber">Мої квитки</MudButton>
+            <MudText Class="cinema-username cinema-hide-xs mx-2">@Session.FullName</MudText>
+            <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit"
+                           OnClick="SignOutAsync" Title="Вийти" />
+        }
+        else
+        {
+            <MudButton Href="/account/login" Color="Color.Inherit"
+                       StartIcon="@Icons.Material.Filled.Login">Увійти</MudButton>
+            <MudButton Href="/account/register" Color="Color.Inherit" Variant="Variant.Outlined"
+                       Class="ml-2 cinema-hide-xs">Реєстрація</MudButton>
+        }
+    </MudAppBar>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="my-6">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _isDarkMode;
+
+    protected override void OnInitialized() => Session.Changed += OnSessionChanged;
+
+    private void OnSessionChanged() => InvokeAsync(StateHasChanged);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            var saved = await JS.InvokeAsync<string?>("themeStorage.get");
+            _isDarkMode = saved == "dark";
+            await Session.InitializeAsync();
+            StateHasChanged();
+        }
+        catch (JSDisconnectedException) { }
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        _isDarkMode = !_isDarkMode;
+        await JS.InvokeVoidAsync("themeStorage.set", _isDarkMode ? "dark" : "light");
+    }
+
+    private async Task SignOutAsync()
+    {
+        await Session.SignOutAsync();
+        Nav.NavigateTo("/");
+    }
+
+    public void Dispose() => Session.Changed -= OnSessionChanged;
+}

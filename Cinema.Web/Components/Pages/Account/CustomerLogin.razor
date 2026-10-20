@@ -1,0 +1,103 @@
+@page "/account/login"
+@using Cinema.Web.Client
+@inject CinemaApiClient Api
+@inject CustomerSession Session
+@inject NavigationManager Nav
+
+<PageTitle>Вхід — Кінотеатр</PageTitle>
+
+<div class="cinema-auth">
+    <MudPaper Class="pa-6" Elevation="2">
+        <MudText Typo="Typo.h5" Class="cinema-page-title mb-1">Вхід</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Увійдіть, щоб бронювати квитки.
+        </MudText>
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_error</MudAlert>
+        }
+
+        <form @onsubmit="SubmitAsync" @onsubmit:preventDefault>
+            <MudTextField @bind-Value="_email" Label="Email" InputType="InputType.Email"
+                          Variant="Variant.Outlined" Immediate="true" Class="mb-3" />
+            <MudTextField @bind-Value="_password" Label="Пароль"
+                          InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                          Variant="Variant.Outlined" Immediate="true" Class="mb-4"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                          OnAdornmentClick="TogglePassword" AdornmentAriaLabel="Показати пароль" />
+
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                       FullWidth="true" Disabled="_busy">
+                @if (_busy)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Увійти
+            </MudButton>
+        </form>
+
+        <MudText Typo="Typo.body2" Align="Align.Center" Class="mt-4">
+            Немає акаунта?
+            <MudLink Href="@RegisterHref">Зареєструватися</MudLink>
+        </MudText>
+    </MudPaper>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
+
+    private string? _email;
+    private string? _password;
+    private string? _error;
+    private bool _busy;
+    private bool _showPassword;
+
+    private string RegisterHref => string.IsNullOrEmpty(ReturnUrl)
+        ? "/account/register"
+        : $"/account/register?returnUrl={Uri.EscapeDataString(ReturnUrl)}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        await Session.InitializeAsync();
+        if (Session.IsAuthenticated)
+            Nav.NavigateTo(UiFormat.LocalUrl(ReturnUrl), replace: true);
+    }
+
+    private void TogglePassword() => _showPassword = !_showPassword;
+
+    private async Task SubmitAsync()
+    {
+        if (_busy) return;
+        _error = null;
+
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrEmpty(_password))
+        {
+            _error = "Введіть email і пароль.";
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var result = await Api.LoginAsync(_email.Trim(), _password);
+            if (!result.Success || result.Value is null)
+            {
+                _error = result.IsUnauthorized
+                    ? "Невірний email або пароль."
+                    : result.Error ?? "Не вдалося увійти. Спробуйте ще раз.";
+                return;
+            }
+
+            await Session.SignInAsync(result.Value);
+            Nav.NavigateTo(UiFormat.LocalUrl(ReturnUrl));
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

@@ -4,7 +4,7 @@ public record LoginRequest(string Email, string Password);
 public record AuthResponse(string Token, DateTime ExpiresAtUtc, string FullName);
 
 public record MovieDto(int Id, string Title, int GenreId, string Genre, int DurationMinutes,
-    string AgeRating, string? Description, DateOnly? ReleaseDate);
+    string AgeRating, string? Description, DateOnly? ReleaseDate, string? PosterUrl);
 
 public record TicketDto(int Id, int SessionId, string MovieTitle, DateOnly Date, TimeOnly Time,
     int Row, int Seat, decimal Price, string Status, string StatusLabel, bool CanCancel);

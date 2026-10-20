@@ -1,10 +1,10 @@
-﻿namespace Cinema.Web.Client;
+namespace Cinema.Web.Client;
 
 public record LoginRequest(string Email, string Password);
 public record AuthResponse(string Token, DateTime ExpiresAtUtc, string FullName);
 
 public record MovieDto(int Id, string Title, int GenreId, string Genre, int DurationMinutes,
-    string AgeRating, string? Description, DateOnly? ReleaseDate);
+    string AgeRating, string? Description, DateOnly? ReleaseDate, string? PosterUrl);
 
 public record SessionDto(int Id, int MovieId, string MovieTitle, int HallId,
     string HallName, string ScreenType, DateOnly Date, TimeOnly Time);

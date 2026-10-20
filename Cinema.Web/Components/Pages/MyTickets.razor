@@ -1,0 +1,180 @@
+@page "/my-tickets"
+@using Cinema.Web.Client
+@inject CinemaApiClient Api
+@inject CustomerSession Session
+@inject NavigationManager Nav
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Мої квитки — Кінотеатр</PageTitle>
+
+<MudText Typo="Typo.h4" Class="cinema-page-title mb-4">Мої квитки</MudText>
+
+@if (!_ready || _loading)
+{
+    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="140px" Class="mb-3 rounded-lg" />
+    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="140px" Class="rounded-lg" />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">
+        @_error
+        <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="ml-3" OnClick="LoadAsync">
+            Спробувати ще раз
+        </MudButton>
+    </MudAlert>
+}
+else if (_upcoming.Count == 0 && _past.Count == 0)
+{
+    <div class="cinema-empty">
+        <MudIcon Icon="@Icons.Material.Filled.ConfirmationNumber" Size="Size.Large" />
+        <MudText Typo="Typo.h6" Class="mt-2 mb-4">У вас ще немає квитків</MudText>
+        <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary">Обрати фільм</MudButton>
+    </div>
+}
+else
+{
+    @foreach (var (title, groups) in Sections)
+    {
+        if (groups.Count == 0) { continue; }
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-3">@title</MudText>
+
+        @foreach (var group in groups)
+        {
+            var first = group.First();
+            var active = group.Where(t => t.Status != "cancelled").ToList();
+            <MudPaper Outlined="true" Elevation="0" Class="pa-4 mb-3">
+                <div class="cinema-ticket-head">
+                    <MudText Typo="Typo.h6">@first.MovieTitle</MudText>
+                    <span class="cinema-muted">
+                        @KyivTime.DayLabel(first.Date) · @UiFormat.Time(first.Time)
+                    </span>
+                </div>
+
+                @foreach (var t in group.OrderBy(t => t.Row).ThenBy(t => t.Seat))
+                {
+                    <div class="@($"cinema-ticket-row{(t.Status == "cancelled" ? " cinema-ticket-cancelled" : "")}")">
+                        <div class="cinema-ticket-info">
+                            <span>Ряд @t.Row, місце @t.Seat</span>
+                            <span class="cinema-muted">@UiFormat.Price(t.Price)</span>
+                            <span class="@($"cinema-status cinema-status--{t.Status}")">@t.StatusLabel</span>
+                        </div>
+                        @if (t.CanCancel)
+                        {
+                            <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                                       Disabled="@(_busyId == t.Id)" OnClick="() => CancelAsync(t)">
+                                Скасувати
+                            </MudButton>
+                        }
+                    </div>
+                }
+
+                @if (active.Count > 1)
+                {
+                    <div class="cinema-ticket-row">
+                        <span class="cinema-muted">Разом за сеанс</span>
+                        <strong>@UiFormat.Price(active.Sum(t => t.Price))</strong>
+                    </div>
+                }
+            </MudPaper>
+        }
+    }
+}
+
+@code {
+    private List<IGrouping<int, TicketDto>> _upcoming = new();
+    private List<IGrouping<int, TicketDto>> _past = new();
+    private bool _ready;
+    private bool _loading = true;
+    private string? _error;
+    private int? _busyId;
+
+    private IEnumerable<(string Title, List<IGrouping<int, TicketDto>> Groups)> Sections
+    {
+        get
+        {
+            yield return ("Майбутні сеанси", _upcoming);
+            yield return ("Минулі сеанси", _past);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        await Session.InitializeAsync();
+        if (!Session.IsAuthenticated)
+        {
+            Nav.NavigateTo("/account/login?returnUrl=" + Uri.EscapeDataString("/my-tickets"), replace: true);
+            return;
+        }
+
+        _ready = true;
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        var result = await Api.GetMyTicketsAsync();
+        if (result.IsUnauthorized)
+        {
+            Nav.NavigateTo("/account/login?returnUrl=" + Uri.EscapeDataString("/my-tickets"), replace: true);
+            return;
+        }
+        if (!result.Success)
+        {
+            _error = result.Error ?? "Не вдалося завантажити квитки.";
+            _loading = false;
+            return;
+        }
+
+        var groups = (result.Value ?? new List<TicketDto>())
+            .GroupBy(t => t.SessionId)
+            .ToList();
+
+        _upcoming = groups
+            .Where(g => KyivTime.IsUpcoming(g.First().Date, g.First().Time))
+            .OrderBy(g => g.First().Date).ThenBy(g => g.First().Time)
+            .ToList();
+        _past = groups
+            .Where(g => !KyivTime.IsUpcoming(g.First().Date, g.First().Time))
+            .OrderByDescending(g => g.First().Date).ThenByDescending(g => g.First().Time)
+            .ToList();
+
+        _loading = false;
+    }
+
+    private async Task CancelAsync(TicketDto ticket)
+    {
+        bool? confirm = await DialogService.ShowMessageBoxAsync(
+            "Підтвердження",
+            $"Скасувати квиток: ряд {ticket.Row}, місце {ticket.Seat} на «{ticket.MovieTitle}»?",
+            yesText: "Скасувати квиток", cancelText: "Назад");
+        if (confirm != true) return;
+
+        _busyId = ticket.Id;
+        var result = await Api.CancelTicketAsync(ticket.Id);
+        _busyId = null;
+
+        if (result.IsUnauthorized)
+        {
+            Nav.NavigateTo("/account/login?returnUrl=" + Uri.EscapeDataString("/my-tickets"), replace: true);
+            return;
+        }
+
+        if (result.Success)
+        {
+            Snackbar.Add("Квиток скасовано", Severity.Success);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error ?? "Не вдалося скасувати квиток.", Severity.Error);
+        }
+    }
+}

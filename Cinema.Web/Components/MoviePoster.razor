@@ -1,0 +1,21 @@
+@using Cinema.Web.Client
+
+<div class="cinema-poster" style="--poster-hue:@Hue">
+    <div class="cinema-poster-fallback">
+        <MudIcon Icon="@Icons.Material.Filled.Movie" />
+        <span>@Title</span>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Url))
+    {
+        <img src="@Url" alt="@Title" loading="lazy" referrerpolicy="no-referrer"
+             onerror="this.style.display='none'" />
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string? Url { get; set; }
+
+    private int Hue => UiFormat.PosterHue(Id);
+}

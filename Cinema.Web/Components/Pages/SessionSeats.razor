@@ -1,0 +1,586 @@
+@page "/session/{Id:int}"
+@implements IAsyncDisposable
+@using Cinema.Application.Models
+@using Cinema.Web.Client
+@using Microsoft.AspNetCore.SignalR
+@using Microsoft.AspNetCore.SignalR.Client
+@inject CinemaApiClient Api
+@inject CustomerSession Session
+@inject IConfiguration Config
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>@(_session is null ? "Сеанс" : _session.MovieTitle + " — вибір місць") — Кінотеатр</PageTitle>
+
+@if (_loading)
+{
+    <MudSkeleton Width="40%" Height="48px" />
+    <MudSkeleton Width="25%" />
+    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="360px" Class="mt-4 rounded-lg" />
+}
+else if (_loadError is not null)
+{
+    <MudAlert Severity="Severity.Error">
+        @_loadError
+        <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="ml-3" OnClick="LoadAsync">
+            Спробувати ще раз
+        </MudButton>
+    </MudAlert>
+}
+else if (_session is null)
+{
+    <div class="cinema-empty">
+        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" />
+        <MudText Typo="Typo.h5" Class="mt-2 mb-4">Сеанс не знайдено або він уже минув</MudText>
+        <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary">На афішу</MudButton>
+    </div>
+}
+else
+{
+    <MudButton Href="@($"/movie/{_session.MovieId}")" Variant="Variant.Text"
+               StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2">До фільму</MudButton>
+
+    <MudText Typo="Typo.h4" Class="cinema-page-title">@_session.MovieTitle</MudText>
+    <div class="cinema-muted mb-4">
+        @KyivTime.DayLabel(_session.Date) · @UiFormat.Time(_session.Time) · @UiFormat.Hall(_session.HallName, _session.ScreenType)
+    </div>
+
+    @if (!IsUpcoming)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-4">Сеанс уже розпочався, бронювання недоступне.</MudAlert>
+    }
+    @if (_hubFailed)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-4">
+            Не вдалося підключитися до оновлень у реальному часі, тому обрати місця поки неможливо.
+            <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="ml-3" OnClick="ConnectAsync">
+                Підключитися ще раз
+            </MudButton>
+        </MudAlert>
+    }
+    else if (_hub?.State == HubConnectionState.Reconnecting)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4">Звʼязок втрачено, відновлюємо…</MudAlert>
+    }
+
+    <MudGrid Spacing="4">
+        <MudItem xs="12" md="8">
+            @if (_rows.Count == 0)
+            {
+                <MudText Class="cinema-muted">Схему залу ще не налаштовано.</MudText>
+            }
+            else
+            {
+                <div class="cinema-hall">
+                    <div class="cinema-screen">Екран</div>
+                    <div class="cinema-seatmap">
+                        @foreach (var row in _rows)
+                        {
+                            <div class="cinema-seatrow">
+                                <span class="cinema-rowlabel">@row.Key</span>
+                                <div class="cinema-seats">
+                                    @foreach (var seat in row)
+                                    {
+                                        var state = StateOf(seat.SeatId);
+                                        var blocked = state is "locked" or "taken";
+                                        <button type="button" class="@($"cinema-seat cinema-seat--{state}")"
+                                                title="@SeatTitle(seat, state)" aria-label="@SeatTitle(seat, state)"
+                                                disabled="@blocked"
+                                                @onclick="() => ToggleAsync(seat.SeatId)">@seat.Number</button>
+                                    }
+                                </div>
+                                <span class="cinema-rowlabel">@row.Key</span>
+                            </div>
+                        }
+                    </div>
+                    <div class="cinema-legend">
+                        <span><button type="button" class="cinema-seat cinema-seat--free" tabindex="-1"></button>Вільне</span>
+                        <span><button type="button" class="cinema-seat cinema-seat--selected" tabindex="-1"></button>Ваш вибір</span>
+                        <span><button type="button" class="cinema-seat cinema-seat--locked" tabindex="-1"></button>Обирає інший глядач</span>
+                        <span><button type="button" class="cinema-seat cinema-seat--taken" tabindex="-1"></button>Зайняте</span>
+                    </div>
+                </div>
+            }
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudPaper Outlined="true" Elevation="0" Class="pa-4 cinema-summary">
+                @if (_booked is not null)
+                {
+                    <MudAlert Severity="Severity.Success" Class="mb-3">Квитки заброньовано!</MudAlert>
+                    <div class="cinema-total">
+                        <span>Квитків: @_booked.TicketIds.Count</span>
+                        <span>@UiFormat.Price(_booked.TotalPrice)</span>
+                    </div>
+                    <MudButton Href="/my-tickets" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true">
+                        Мої квитки
+                    </MudButton>
+                    <MudButton OnClick="ResetBooking" Variant="Variant.Text" FullWidth="true" Class="mt-2">
+                        Обрати ще місця
+                    </MudButton>
+                }
+                else
+                {
+                    <MudText Typo="Typo.h6" Class="mb-2">Ваше замовлення</MudText>
+
+                    @if (_authChecked && !Session.IsAuthenticated)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                            Щоб обрати місця, увійдіть в акаунт.
+                        </MudAlert>
+                        <MudButton Href="@LoginHref" Variant="Variant.Filled" Color="Color.Primary"
+                                   FullWidth="true" Class="mb-2">Увійти</MudButton>
+                        <MudButton Href="@RegisterHref" Variant="Variant.Text" FullWidth="true">Реєстрація</MudButton>
+                    }
+                    else if (_selected.Count == 0)
+                    {
+                        <MudText Class="cinema-muted">Оберіть місця на схемі (до @MaxSeats).</MudText>
+                    }
+                    else
+                    {
+                        @foreach (var id in _selected)
+                        {
+                            if (!_seats.TryGetValue(id, out var info)) { continue; }
+                            <div class="cinema-summary-seat">
+                                <span>Ряд @info.Row, місце @info.Number</span>
+                                <span>
+                                    @UiFormat.Price(info.Price)
+                                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                                   Disabled="_actionBusy || _booking"
+                                                   OnClick="() => ToggleAsync(id)" Title="Прибрати" />
+                                </span>
+                            </div>
+                        }
+
+                        <div class="cinema-total">
+                            <span>Разом</span>
+                            <span>@UiFormat.Price(Total)</span>
+                        </div>
+
+                        @if (TimeLeft is { } left)
+                        {
+                            <div class="cinema-muted mb-3">Місця утримуються ще @FormatLeft(left)</div>
+                        }
+
+                        @if (_bookError is not null)
+                        {
+                            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_bookError</MudAlert>
+                        }
+
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                                   Disabled="@(_booking || !IsUpcoming)" OnClick="BookAsync">
+                            @if (_booking)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            }
+                            Забронювати
+                        </MudButton>
+                    }
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private const int MaxSeats = 6;   // ліміт SeatHub.MaxSeatsPerLock
+
+    private enum SeatChange { Locked, Released, Booked }
+
+    [Parameter] public int Id { get; set; }
+
+    private SessionDto? _session;
+    private Dictionary<int, SeatMapItem> _seats = new();
+    private Dictionary<int, string> _status = new();
+    private List<IGrouping<int, SeatMapItem>> _rows = new();
+    private readonly List<int> _selected = new();
+    private readonly Dictionary<int, DateTimeOffset> _expiries = new();
+
+    private bool _loading = true;
+    private string? _loadError;
+    private string? _bookError;
+    private BookingResponse? _booked;
+    private bool _booking;
+    private bool _actionBusy;
+    private bool _authChecked;
+    private bool _hubFailed;
+    private bool _disposed;
+    private int _loadedId = -1;
+
+    private HubConnection? _hub;
+    private System.Threading.Timer? _timer;
+
+    // ---------- відображення ----------
+
+    private bool IsUpcoming => _session is not null && KyivTime.IsUpcoming(_session.Date, _session.Time);
+
+    private string LoginHref => "/account/login?returnUrl=" + Uri.EscapeDataString($"/session/{Id}");
+    private string RegisterHref => "/account/register?returnUrl=" + Uri.EscapeDataString($"/session/{Id}");
+
+    private decimal Total => _selected.Where(_seats.ContainsKey).Sum(id => _seats[id].Price);
+
+    private TimeSpan? TimeLeft =>
+        _selected.Count > 0 && _expiries.Count > 0
+            ? _expiries.Values.Min() - DateTimeOffset.UtcNow
+            : null;
+
+    private static string FormatLeft(TimeSpan left)
+    {
+        var s = Math.Max(0, (int)left.TotalSeconds);
+        return $"{s / 60:00}:{s % 60:00}";
+    }
+
+    private string StateOf(int seatId)
+    {
+        if (_selected.Contains(seatId)) return "selected";
+        return _status.GetValueOrDefault(seatId, SeatState.Free) switch
+        {
+            SeatState.Free => "free",
+            SeatState.Locked => "locked",
+            _ => "taken"
+        };
+    }
+
+    private static string SeatTitle(SeatMapItem seat, string state)
+    {
+        var text = $"Ряд {seat.Row}, місце {seat.Number} · {UiFormat.Price(seat.Price)}";
+        return state switch
+        {
+            "locked" => text + " (обирає інший глядач)",
+            "taken" => text + " (зайняте)",
+            _ => text
+        };
+    }
+
+    // ---------- життєвий цикл ----------
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedId == Id) return;
+        var previous = _loadedId;
+        _loadedId = Id;
+
+        if (previous != -1) await LeaveSessionAsync(previous);
+        ResetState();
+        await LoadAsync();
+
+        if (previous != -1 && _hub?.State == HubConnectionState.Connected)
+            await JoinAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        await Session.InitializeAsync();
+        _authChecked = true;
+        StateHasChanged();
+
+        await ConnectAsync();
+
+        _timer = new System.Threading.Timer(state => { _ = TickSafeAsync(); }, null, 1000, 1000);
+    }
+
+    private void ResetState()
+    {
+        _selected.Clear();
+        _expiries.Clear();
+        _booked = null;
+        _bookError = null;
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _loadError = null;
+        _session = null;
+
+        var sessionsTask = Api.GetSessionsAsync();
+        var mapTask = Api.GetSeatMapAsync(Id);
+        var sessions = await sessionsTask;
+        var map = await mapTask;
+
+        if (!sessions.Success)
+            _loadError = sessions.Error ?? "Не вдалося завантажити сеанс.";
+        else
+            _session = sessions.Value?.FirstOrDefault(s => s.Id == Id);
+
+        if (_loadError is null)
+        {
+            if (map.Success && map.Value is not null) ApplyMap(map.Value);
+            else if (map.StatusCode == 404) _session = null;
+            else _loadError = map.Error ?? "Не вдалося завантажити схему залу.";
+        }
+
+        _loading = false;
+    }
+
+    private async Task ReloadMapAsync()
+    {
+        var result = await Api.GetSeatMapAsync(Id);
+        if (result.Success && result.Value is not null) ApplyMap(result.Value);
+    }
+
+    private void ApplyMap(SeatMap map)
+    {
+        _seats = map.Seats.ToDictionary(s => s.SeatId);
+        _status = map.Seats.ToDictionary(s => s.SeatId, s => s.Status);
+        _rows = map.Seats.OrderBy(s => s.Row).ThenBy(s => s.Number).GroupBy(s => s.Row).ToList();
+
+        // Обране залишається, лише поки сервер тримає ці місця (вони мають статус «locked»).
+        var dropped = 0;
+        foreach (var id in _selected.ToList())
+        {
+            if (_status.GetValueOrDefault(id, SeatState.Free) == SeatState.Locked) continue;
+            _selected.Remove(id);
+            _expiries.Remove(id);
+            dropped++;
+        }
+        if (dropped > 0)
+            Snackbar.Add("Частину обраних місць більше не утримано за вами.", Severity.Warning);
+    }
+
+    // ---------- SignalR ----------
+
+    private async Task ConnectAsync()
+    {
+        _hubFailed = false;
+        if (_hub is not null)
+        {
+            try { await _hub.DisposeAsync(); } catch (Exception) { }
+            _hub = null;
+        }
+
+        var baseUrl = (Config["Api:BaseUrl"] ?? "").TrimEnd('/');
+        var hubPath = (Config["Api:HubPath"] ?? "hubs/seats").Trim('/');
+
+        var hub = new HubConnectionBuilder()
+            .WithUrl($"{baseUrl}/{hubPath}", options =>
+                options.AccessTokenProvider = () =>
+                    Task.FromResult<string?>(Session.IsAuthenticated ? Session.Token : null))
+            .WithAutomaticReconnect()
+            .Build();
+
+        hub.On<SeatEvent>("SeatLocked", e => OnSeatEvent(SeatChange.Locked, e));
+        hub.On<SeatEvent>("SeatReleased", e => OnSeatEvent(SeatChange.Released, e));
+        hub.On<SeatEvent>("SeatBooked", e => OnSeatEvent(SeatChange.Booked, e));
+
+        hub.Reconnecting += _ => InvokeAsync(StateHasChanged);
+        hub.Reconnected += _ => InvokeAsync(OnReconnectedAsync);
+        hub.Closed += _ => InvokeAsync(StateHasChanged);
+
+        _hub = hub;
+        try
+        {
+            await hub.StartAsync();
+            await JoinAsync();
+        }
+        catch (Exception)
+        {
+            _hubFailed = true;
+            _hub = null;
+            try { await hub.DisposeAsync(); } catch (Exception) { }
+        }
+
+        StateHasChanged();
+    }
+
+    private Task JoinAsync() => _hub!.InvokeAsync("JoinSession", Id);
+
+    private async Task OnReconnectedAsync()
+    {
+        try
+        {
+            await JoinAsync();
+            await ReloadMapAsync();
+        }
+        catch (Exception) { }
+        StateHasChanged();
+    }
+
+    private Task OnSeatEvent(SeatChange change, SeatEvent e) => InvokeAsync(() =>
+    {
+        if (e.SessionId != Id) return;
+
+        var lostMine = false;
+        foreach (var id in e.SeatIds)
+        {
+            if (!_seats.ContainsKey(id)) continue;
+
+            switch (change)
+            {
+                case SeatChange.Locked:
+                    _status[id] = SeatState.Locked;
+                    break;
+
+                case SeatChange.Released:
+                    if (_selected.Remove(id)) { _expiries.Remove(id); lostMine = true; }
+                    _status[id] = SeatState.Free;
+                    break;
+
+                case SeatChange.Booked:
+                    // під час власного бронювання ці події ігноруємо — істину дасть відповідь API
+                    if (_booking && _selected.Contains(id)) break;
+                    if (_selected.Remove(id)) { _expiries.Remove(id); lostMine = true; }
+                    _status[id] = SeatState.Booked;
+                    break;
+            }
+        }
+
+        if (lostMine)
+            Snackbar.Add("Час утримання місць минув або їх уже забронювали.", Severity.Warning);
+        StateHasChanged();
+    });
+
+    private async Task TickSafeAsync()
+    {
+        try { await InvokeAsync(Tick); }
+        catch (Exception) { }
+    }
+
+    private void Tick()
+    {
+        if (_disposed || _expiries.Count == 0) return;
+
+        var now = DateTimeOffset.UtcNow;
+        var expired = _expiries.Where(kv => kv.Value <= now).Select(kv => kv.Key).ToList();
+        foreach (var id in expired)
+        {
+            _selected.Remove(id);
+            _expiries.Remove(id);
+            _status[id] = SeatState.Free;
+        }
+        if (expired.Count > 0)
+            Snackbar.Add("Час утримання місць минув. Оберіть місця знову.", Severity.Warning);
+
+        StateHasChanged();
+    }
+
+    // ---------- дії ----------
+
+    private async Task ToggleAsync(int seatId)
+    {
+        if (_actionBusy || _booking || _booked is not null || !IsUpcoming) return;
+
+        if (!Session.IsAuthenticated)
+        {
+            Snackbar.Add("Увійдіть в акаунт, щоб обрати місця.", Severity.Info);
+            return;
+        }
+
+        var hub = _hub;
+        if (hub is null || hub.State != HubConnectionState.Connected)
+        {
+            Snackbar.Add("Немає звʼязку із сервером. Зачекайте або оновіть сторінку.", Severity.Warning);
+            return;
+        }
+
+        _actionBusy = true;
+        _bookError = null;
+        try
+        {
+            if (_selected.Contains(seatId))
+            {
+                _selected.Remove(seatId);
+                _expiries.Remove(seatId);
+                _status[seatId] = SeatState.Free;
+                StateHasChanged();
+                await hub.InvokeAsync("ReleaseSeats", Id, new[] { seatId });
+            }
+            else
+            {
+                if (StateOf(seatId) != "free") return;
+                if (_selected.Count >= MaxSeats)
+                {
+                    Snackbar.Add($"Не більше {MaxSeats} місць за одне бронювання.", Severity.Info);
+                    return;
+                }
+
+                var response = await hub.InvokeAsync<LockResponse>("LockSeats", Id, new[] { seatId });
+                if (response.Success)
+                {
+                    _selected.Add(seatId);
+                    if (response.ExpiresAt is { } expires) _expiries[seatId] = expires;
+                }
+                else
+                {
+                    Snackbar.Add(response.Error ?? "Не вдалося обрати місце.", Severity.Warning);
+                    await ReloadMapAsync();
+                }
+            }
+        }
+        catch (HubException)
+        {
+            Snackbar.Add("Не вдалося виконати дію. Спробуйте увійти в акаунт ще раз.", Severity.Error);
+        }
+        catch (InvalidOperationException)
+        {
+            Snackbar.Add("Немає звʼязку із сервером. Спробуйте ще раз.", Severity.Warning);
+        }
+        finally
+        {
+            _actionBusy = false;
+        }
+    }
+
+    private async Task BookAsync()
+    {
+        if (_selected.Count == 0 || _booking || !IsUpcoming) return;
+
+        _booking = true;
+        _bookError = null;
+        try
+        {
+            var ids = _selected.ToList();
+            var result = await Api.BookAsync(Id, ids);
+
+            if (result.Success && result.Value is { } booked)
+            {
+                foreach (var id in ids) _status[id] = SeatState.Booked;
+                _selected.Clear();
+                _expiries.Clear();
+                _booked = booked;
+            }
+            else
+            {
+                _bookError = result.IsUnauthorized
+                    ? "Сесія завершилась. Увійдіть в акаунт ще раз."
+                    : result.Error ?? "Не вдалося забронювати місця.";
+                await ReloadMapAsync();
+            }
+        }
+        finally
+        {
+            _booking = false;
+        }
+    }
+
+    private void ResetBooking() => _booked = null;
+
+    // ---------- завершення ----------
+
+    private async Task LeaveSessionAsync(int sessionId)
+    {
+        var hub = _hub;
+        if (hub is null || hub.State != HubConnectionState.Connected) return;
+        try
+        {
+            if (_selected.Count > 0)
+                await hub.InvokeAsync("ReleaseSeats", sessionId, _selected.ToArray());
+            await hub.InvokeAsync("LeaveSession", sessionId);
+        }
+        catch (Exception) { }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        if (_timer is not null) await _timer.DisposeAsync();
+
+        if (_hub is { } hub)
+        {
+            await LeaveSessionAsync(_loadedId);
+            try { await hub.DisposeAsync(); } catch (Exception) { }
+        }
+    }
+}

@@ -19,7 +19,8 @@ public class MovieService : IMovieService
     {
         movie.Title = (movie.Title ?? "").Trim();
         movie.Description = string.IsNullOrWhiteSpace(movie.Description) ? null : movie.Description.Trim();
-
+        movie.PosterUrl = string.IsNullOrWhiteSpace(movie.PosterUrl) ? null : movie.PosterUrl.Trim();
+       
         if (movie.Title.Length == 0)
             return OperationResult.Fail("Назва фільму не може бути порожньою.");
         if (movie.Title.Length > 255)
@@ -30,7 +31,11 @@ public class MovieService : IMovieService
             return OperationResult.Fail("Тривалість має бути від 1 до 300 хвилин.");
         if (!AgeRatings.Contains(movie.AgeRating))
             return OperationResult.Fail("Оберіть віковий рейтинг.");
-
+        if (movie.PosterUrl is not null &&
+           (movie.PosterUrl.Length > 500
+             || !Uri.TryCreate(movie.PosterUrl, UriKind.Absolute, out var posterUri)
+             || posterUri.Scheme is not ("http" or "https")))
+                    return OperationResult.Fail("Посилання на постер має починатися з http:// або https:// (до 500 символів).");
         if (movie.MovieId == 0) await _repo.AddAsync(movie);
         else await _repo.UpdateAsync(movie);
 

@@ -19,6 +19,8 @@ public partial class Movie
 
     public string? Description { get; set; }
 
+    public string? PosterUrl { get; set; }
+
     public virtual Genre Genre { get; set; } = null!;
 
     public virtual ICollection<Session> Sessions { get; set; } = new List<Session>();

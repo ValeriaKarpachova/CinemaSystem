@@ -1,0 +1,269 @@
+@page "/movie/{Id:int}"
+@using Cinema.Web.Client
+@inject CinemaApiClient Api
+
+<PageTitle>@(_movie?.Title ?? "Фільм") — Кінотеатр</PageTitle>
+
+<MudButton Href="/" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-3">
+    До афіші
+</MudButton>
+
+@if (_loading)
+{
+    <MudGrid Spacing="4">
+        <MudItem xs="12" sm="5" md="3">
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="420px" Class="rounded-lg" />
+        </MudItem>
+        <MudItem xs="12" sm="7" md="5">
+            <MudSkeleton Width="60%" Height="48px" />
+            <MudSkeleton Width="40%" />
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="160px" Class="mt-4" />
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="220px" Class="rounded-lg" />
+        </MudItem>
+    </MudGrid>
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">
+        @_error
+        <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="ml-3" OnClick="LoadAsync">
+            Спробувати ще раз
+        </MudButton>
+    </MudAlert>
+}
+else if (_movie is null)
+{
+    <div class="cinema-empty">
+        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" />
+        <MudText Typo="Typo.h5" Class="mt-2 mb-4">Фільм не знайдено</MudText>
+        <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary">На афішу</MudButton>
+    </div>
+}
+else
+{
+    <MudGrid Spacing="4">
+        @* --- постер --- *@
+        <MudItem xs="12" sm="5" md="3">
+            <div class="cinema-movie-poster">
+                <MoviePoster Id="_movie.Id" Title="@_movie.Title" Url="@_movie.PosterUrl" />
+            </div>
+        </MudItem>
+
+        @* --- характеристики і опис --- *@
+        <MudItem xs="12" sm="7" md="5">
+            <MudText Typo="Typo.h3" Class="cinema-page-title mb-4">@_movie.Title</MudText>
+
+            <dl class="cinema-specs mb-4">
+                <dt>Жанр</dt>
+                <dd>@_movie.Genre</dd>
+
+                <dt>Тривалість</dt>
+                <dd>@UiFormat.Duration(_movie.DurationMinutes)</dd>
+
+                <dt>Вікове обмеження</dt>
+                <dd>@_movie.AgeRating</dd>
+
+                @if (_movie.ReleaseDate is { } released)
+                {
+                    <dt>Дата виходу</dt>
+                    <dd>@released.ToString("dd.MM.yyyy")</dd>
+                }
+                @if (_formats.Count > 0)
+                {
+                    <dt>Формат</dt>
+                    <dd>@string.Join(", ", _formats)</dd>
+                }
+                @if (_nextSession is { } next)
+                {
+                    <dt>Найближчий сеанс</dt>
+                    <dd>@Cap(KyivTime.DayLabel(next.Date)), @UiFormat.Time(next.Time)</dd>
+                }
+            </dl>
+
+            @if (!string.IsNullOrWhiteSpace(_movie.Description))
+            {
+                <MudText Typo="Typo.body1" Class="cinema-description">@_movie.Description</MudText>
+            }
+        </MudItem>
+
+        @* --- сеанси --- *@
+        <MudItem xs="12" md="4">
+            <MudPaper Outlined="true" Elevation="0" Class="pa-4 cinema-sessions-panel">
+                <MudText Typo="Typo.h6" Class="cinema-page-title mb-3">Сеанси</MudText>
+
+                @if (_sessionsError is not null)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true">
+                        Не вдалося завантажити сеанси. @_sessionsError
+                    </MudAlert>
+                }
+                else if (_dates.Count == 0)
+                {
+                    <MudText Class="cinema-muted">Найближчих сеансів поки немає.</MudText>
+                }
+                else
+                {
+                    <MudSelect T="DateOnly?" @bind-Value="_selectedDate" Label="Дата сеансу"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-4">
+                        @foreach (var d in _dates)
+                        {
+                            <MudSelectItem T="DateOnly?" Value="@((DateOnly?)d)">@DayText(d)</MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    <div class="cinema-session-list">
+                        @foreach (var s in SessionsOfDay)
+                        {
+                            <a class="cinema-session" href="@($"/session/{s.Id}")">
+                                <span class="cinema-session-time">@UiFormat.Time(s.Time)</span>
+                                <span class="cinema-session-hall">@UiFormat.Hall(s.HallName, s.ScreenType)</span>
+                            </a>
+                        }
+                    </div>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    @* --- рекомендації --- *@
+    @if (_recommended.Count > 0)
+    {
+        <MudText Typo="Typo.h5" Class="cinema-page-title mt-10 mb-4">
+            Інші фільми жанру «@_movie.Genre»
+        </MudText>
+
+        <div class="cinema-grid">
+            @foreach (var m in _recommended)
+            {
+                <div class="cinema-card">
+                    <a href="@($"/movie/{m.Id}")" class="cinema-card-poster">
+                        <MoviePoster Id="m.Id" Title="@m.Title" Url="@m.PosterUrl" />
+                        <span class="cinema-age">@m.AgeRating</span>
+                    </a>
+                    <div>
+                        <a href="@($"/movie/{m.Id}")" class="cinema-card-title">@m.Title</a>
+                        <div class="cinema-card-meta">@UiFormat.Duration(m.DurationMinutes)</div>
+                    </div>
+                    @if (!_idsWithSessions.Contains(m.Id))
+                    {
+                        <span class="cinema-muted">Сеансів поки немає</span>
+                    }
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private const int RecommendedCount = 6;
+
+    private MovieDto? _movie;
+    private List<MovieDto> _recommended = new();
+    private HashSet<int> _idsWithSessions = new();
+
+    private Dictionary<DateOnly, List<SessionDto>> _sessionsByDate = new();
+    private List<DateOnly> _dates = new();
+    private DateOnly? _selectedDate;
+    private List<string> _formats = new();
+    private SessionDto? _nextSession;
+
+    private bool _loading = true;
+    private string? _error;
+    private string? _sessionsError;
+    private int _loadedId = -1;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedId == Id) return;
+        _loadedId = Id;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        _sessionsError = null;
+        _movie = null;
+        _recommended = new();
+        _idsWithSessions = new();
+        _sessionsByDate = new();
+        _dates = new();
+        _selectedDate = null;
+        _formats = new();
+        _nextSession = null;
+
+        var moviesTask = Api.GetMoviesAsync();
+        var sessionsTask = Api.GetSessionsAsync();   // усі сеанси: потрібні й для цього фільму, й для рекомендацій
+        var movies = await moviesTask;
+        var sessions = await sessionsTask;
+
+        if (!movies.Success)
+        {
+            _error = movies.Error ?? "Не вдалося завантажити фільм.";
+            _loading = false;
+            return;
+        }
+
+        var allMovies = movies.Value ?? new List<MovieDto>();
+        _movie = allMovies.FirstOrDefault(m => m.Id == Id);
+
+        if (sessions.Success)
+        {
+            var upcoming = (sessions.Value ?? new List<SessionDto>())
+                .Where(s => KyivTime.IsUpcoming(s.Date, s.Time))
+                .OrderBy(s => s.Date).ThenBy(s => s.Time)
+                .ToList();
+
+            _idsWithSessions = upcoming.Select(s => s.MovieId).ToHashSet();
+
+            var mine = upcoming.Where(s => s.MovieId == Id).ToList();
+            _sessionsByDate = mine.GroupBy(s => s.Date).ToDictionary(g => g.Key, g => g.ToList());
+            _dates = _sessionsByDate.Keys.OrderBy(d => d).ToList();
+            _selectedDate = _dates.Count > 0 ? _dates[0] : null;
+            _nextSession = mine.FirstOrDefault();
+            _formats = mine.Select(s => s.ScreenType)
+                           .Where(t => !string.IsNullOrWhiteSpace(t))
+                           .Distinct()
+                           .OrderBy(t => t)
+                           .ToList();
+        }
+        else
+        {
+            _sessionsError = sessions.Error;
+        }
+
+        if (_movie is not null)
+        {
+            _recommended = allMovies
+                .Where(m => m.GenreId == _movie.GenreId && m.Id != _movie.Id)
+                .OrderByDescending(m => _idsWithSessions.Contains(m.Id))   // спочатку ті, що зараз у прокаті
+                .ThenBy(m => m.Title)
+                .Take(RecommendedCount)
+                .ToList();
+        }
+
+        _loading = false;
+    }
+
+    private IEnumerable<SessionDto> SessionsOfDay =>
+        _selectedDate is { } d && _sessionsByDate.TryGetValue(d, out var list)
+            ? list
+            : Enumerable.Empty<SessionDto>();
+
+    private static string Cap(string s) =>
+        s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
+
+    /// <summary>«Сьогодні, 20.10», «Завтра, 21.10» або «Середа, 22 жовтня».</summary>
+    private static string DayText(DateOnly d)
+    {
+        var label = Cap(KyivTime.DayLabel(d));
+        return d == KyivTime.Today || d == KyivTime.Today.AddDays(1)
+            ? $"{label}, {d:dd.MM}"
+            : label;
+    }
+}

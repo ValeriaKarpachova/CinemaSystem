@@ -1,0 +1,151 @@
+@page "/account/register"
+@using System.Net.Mail
+@using Cinema.Application.Models
+@using Cinema.Web.Client
+@inject CinemaApiClient Api
+@inject CustomerSession Session
+@inject NavigationManager Nav
+
+<PageTitle>Реєстрація — Кінотеатр</PageTitle>
+
+<div class="cinema-auth">
+    <MudPaper Class="pa-6" Elevation="2">
+        <MudText Typo="Typo.h5" Class="cinema-page-title mb-1">Реєстрація</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Створіть акаунт, щоб бронювати квитки та бачити їх в одному місці.
+        </MudText>
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_error</MudAlert>
+        }
+
+        <form @onsubmit="SubmitAsync" @onsubmit:preventDefault>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_firstName" Label="Імʼя" MaxLength="50"
+                                  Variant="Variant.Outlined" Immediate="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_lastName" Label="Прізвище" MaxLength="50"
+                                  Variant="Variant.Outlined" Immediate="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_email" Label="Email" InputType="InputType.Email" MaxLength="100"
+                                  Variant="Variant.Outlined" Immediate="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_phone" Label="Телефон (необовʼязково)" InputType="InputType.Telephone"
+                                  MaxLength="20" Variant="Variant.Outlined" Immediate="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_password" Label="Пароль" HelperText="Не менше 6 символів"
+                                  InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                                  Variant="Variant.Outlined" Immediate="true"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                  OnAdornmentClick="TogglePassword" AdornmentAriaLabel="Показати пароль" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_confirm" Label="Повторіть пароль"
+                                  InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                                  Variant="Variant.Outlined" Immediate="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                               FullWidth="true" Disabled="_busy">
+                        @if (_busy)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        Зареєструватися
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </form>
+
+        <MudText Typo="Typo.body2" Align="Align.Center" Class="mt-4">
+            Вже є акаунт?
+            <MudLink Href="@LoginHref">Увійти</MudLink>
+        </MudText>
+    </MudPaper>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
+
+    private string? _firstName, _lastName, _phone, _email, _password, _confirm;
+    private string? _error;
+    private bool _busy;
+    private bool _showPassword;
+
+    private string LoginHref => string.IsNullOrEmpty(ReturnUrl)
+        ? "/account/login"
+        : $"/account/login?returnUrl={Uri.EscapeDataString(ReturnUrl)}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        await Session.InitializeAsync();
+        if (Session.IsAuthenticated)
+            Nav.NavigateTo(UiFormat.LocalUrl(ReturnUrl), replace: true);
+    }
+
+    private void TogglePassword() => _showPassword = !_showPassword;
+
+    private string? Validate()
+    {
+        if (string.IsNullOrWhiteSpace(_firstName)) return "Вкажіть імʼя.";
+        if (string.IsNullOrWhiteSpace(_lastName)) return "Вкажіть прізвище.";
+
+        var email = _email?.Trim();
+        if (string.IsNullOrEmpty(email)
+            || !MailAddress.TryCreate(email, out var parsed) || parsed.Address != email)
+            return "Вкажіть коректний email.";
+
+        if (string.IsNullOrEmpty(_password) || _password.Length < 6)
+            return "Пароль має містити щонайменше 6 символів.";
+        if (_password != _confirm)
+            return "Паролі не збігаються.";
+
+        return null;
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_busy) return;
+
+        _error = Validate();
+        if (_error is not null) return;
+
+        _busy = true;
+        try
+        {
+            var email = _email!.Trim();
+            var phone = string.IsNullOrWhiteSpace(_phone) ? null : _phone.Trim();
+
+            var registered = await Api.RegisterAsync(
+                new RegisterCustomerRequest(_firstName!.Trim(), _lastName!.Trim(), phone, email, _password!));
+            if (!registered.Success)
+            {
+                _error = registered.Error ?? "Не вдалося створити акаунт.";
+                return;
+            }
+
+            var login = await Api.LoginAsync(email, _password!);
+            if (!login.Success || login.Value is null)
+            {
+                _error = "Акаунт створено, але автоматичний вхід не вдався. Спробуйте увійти вручну.";
+                return;
+            }
+
+            await Session.SignInAsync(login.Value);
+            Nav.NavigateTo(UiFormat.LocalUrl(ReturnUrl));
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}
