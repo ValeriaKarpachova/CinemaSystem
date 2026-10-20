@@ -10,11 +10,15 @@ RUN dotnet restore Cinema.Web/Cinema.Web.csproj
 
 COPY . .
 
+RUN ls -la /src/Cinema.Web/wwwroot
+
 RUN dotnet publish Cinema.Web/Cinema.Web.csproj \
     -c Release \
     -o /app/publish \
     --no-restore \
     /p:UseAppHost=false
+
+RUN ls -la /app/publish/wwwroot
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
